@@ -1,0 +1,16 @@
+.DS_Store
+.pytest_cache/
+.venv/
+__pycache__/
+*.pyc
+*.csv
+*.docx
+
+# Local data and caches
+/models/
+/Task/
+/data/
+
+# Editor/system files
+.idea/
+.vscode/
