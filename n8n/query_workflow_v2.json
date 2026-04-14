@@ -1,0 +1,143 @@
+{
+  "name": "Local RAG Query V2",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {},
+        "public": true
+      },
+      "id": "chat-trigger",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [0, 0],
+      "webhookId": "62eb0006-34f6-4d09-987e-edf71ca0b255"
+    },
+    {
+      "parameters": {
+        "query": "={{ $json.chatInput }}",
+        "options": {
+          "systemPromptTemplate": "Ты работаешь только на основе переданного контекста.\nОтветь кратко и по делу.\nЕсли данных недостаточно — скажи об этом.\nНе придумывай информацию.\n\nКонтекст:\n{context}\n\nВопрос:\n{input}"
+        }
+      },
+      "id": "qa-chain",
+      "name": "Question Answering Chain",
+      "type": "@n8n/n8n-nodes-langchain.chainRetrievalQa",
+      "typeVersion": 1.7,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "model": "qwen3.5:4b",
+        "options": {
+          "temperature": 0.2,
+          "numPredict": 128,
+          "numCtx": 1024,
+          "keepAlive": "2m"
+        }
+      },
+      "id": "ollama-model",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [240, 220]
+    },
+    {
+      "parameters": {
+        "qdrantCollection": {
+          "mode": "list",
+          "value": "kz_companies"
+        },
+        "options": {
+          "contentPayloadKey": "pageContent",
+          "metadataPayloadKey": "metadata"
+        }
+      },
+      "id": "qdrant-retriever",
+      "name": "Qdrant Vector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1,
+      "position": [480, 220]
+    },
+    {
+      "parameters": {
+        "topK": 3
+      },
+      "id": "vector-store-retriever",
+      "name": "Vector Store Retriever",
+      "type": "@n8n/n8n-nodes-langchain.retrieverVectorStore",
+      "typeVersion": 1,
+      "position": [720, 220]
+    },
+    {
+      "parameters": {
+        "modelName": "bge-m3"
+      },
+      "id": "ollama-embeddings-2",
+      "name": "Ollama Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [480, 420]
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Question Answering Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Question Answering Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Vector Store Retriever",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Store Retriever": {
+      "ai_retriever": [
+        [
+          {
+            "node": "Question Answering Chain",
+            "type": "ai_retriever",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "6b436b4f-f7c8-4d7d-9a02-fcf6f7cfeb1c"
+}

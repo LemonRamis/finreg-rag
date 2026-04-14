@@ -10,6 +10,7 @@ __pycache__/
 /models/
 /Task/
 /data/
+/demo_artifacts/
 
 # Editor/system files
 .idea/
