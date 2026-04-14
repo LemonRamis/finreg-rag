@@ -1,81 +1,223 @@
-{
-  "name": "Local RAG Query",
-  "nodes": [
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "rag-query",
-        "responseMode": "responseNode",
-        "options": {}
+[
+  {
+    "updatedAt": "2026-04-14T18:34:55.306Z",
+    "createdAt": "2026-04-14T11:48:33.128Z",
+    "id": "nQjnLUKAEuy82DSP",
+    "name": "Local RAG Query V2",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "options": {}
+        },
+        "id": "chat-trigger",
+        "name": "When chat message received",
+        "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+        "typeVersion": 1.4,
+        "position": [
+          0,
+          0
+        ],
+        "webhookId": "62eb0006-34f6-4d09-987e-edf71ca0b255"
       },
-      "id": "query-webhook",
-      "name": "Webhook",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [
-        220,
-        300
-      ],
-      "webhookId": "local-rag-query"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://app:8000/query",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "{\n  \"question\": \"={{ $json.body.question || $json.question }}\",\n  \"top_k\": 5\n}",
-        "options": {}
-      },
-      "id": "http-query",
-      "name": "POST /query",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        500,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ $json }}"
-      },
-      "id": "respond-webhook",
-      "name": "Respond to Webhook",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        780,
-        300
-      ]
-    }
-  ],
-  "connections": {
-    "Webhook": {
-      "main": [
-        [
-          {
-            "node": "POST /query",
-            "type": "main",
-            "index": 0
+      {
+        "parameters": {
+          "query": "={{ $json.chatInput }}",
+          "options": {
+            "systemPromptTemplate": "Ты работаешь только на основе переданного контекста.\nОтветь кратко и по делу.\nЕсли данных недостаточно — скажи об этом.\nНе придумывай информацию.\n\nКонтекст:\n{context}\n\nВопрос:\n{input}"
           }
+        },
+        "id": "qa-chain",
+        "name": "Question Answering Chain",
+        "type": "@n8n/n8n-nodes-langchain.chainRetrievalQa",
+        "typeVersion": 1,
+        "position": [
+          208,
+          0
         ]
-      ]
-    },
-    "POST /query": {
-      "main": [
-        [
-          {
-            "node": "Respond to Webhook",
-            "type": "main",
-            "index": 0
+      },
+      {
+        "parameters": {
+          "model": "qwen3.5:4b",
+          "options": {
+            "temperature": 0.2,
+            "keepAlive": "5m",
+            "numCtx": 4096,
+            "numPredict": 512
           }
+        },
+        "id": "ollama-model",
+        "name": "Ollama Chat Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+        "typeVersion": 1,
+        "position": [
+          96,
+          192
+        ],
+        "credentials": {
+          "ollamaApi": {
+            "id": "UzaVRkhjopgk8Rvh",
+            "name": "Ollama account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "qdrantCollection": {
+            "__rl": true,
+            "value": "kz_companies",
+            "mode": "list",
+            "cachedResultName": "kz_companies"
+          },
+          "options": {
+            "contentPayloadKey": "pageContent",
+            "metadataPayloadKey": "metadata"
+          }
+        },
+        "id": "qdrant-retriever",
+        "name": "Qdrant Vector Store",
+        "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+        "typeVersion": 1,
+        "position": [
+          240,
+          336
+        ],
+        "credentials": {
+          "qdrantApi": {
+            "id": "pAgsxavxE7SUpUsV",
+            "name": "QdrantApi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": "bge-m3:latest"
+        },
+        "id": "ollama-embeddings-2",
+        "name": "Ollama Embeddings",
+        "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+        "typeVersion": 1,
+        "position": [
+          112,
+          512
+        ],
+        "credentials": {
+          "ollamaApi": {
+            "id": "UzaVRkhjopgk8Rvh",
+            "name": "Ollama account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "topK": 3
+        },
+        "type": "@n8n/n8n-nodes-langchain.retrieverVectorStore",
+        "typeVersion": 1,
+        "position": [
+          240,
+          176
+        ],
+        "id": "28958f3c-d83e-4f14-9c9e-f5cedb0ce86f",
+        "name": "Vector Store Retriever"
+      }
+    ],
+    "connections": {
+      "Ollama Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Question Answering Chain",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
         ]
-      ]
-    }
-  },
-  "active": false,
-  "settings": {},
-  "versionId": "query-v1"
-}
+      },
+      "Qdrant Vector Store": {
+        "ai_retriever": [
+          []
+        ],
+        "ai_vectorStore": [
+          [
+            {
+              "node": "Vector Store Retriever",
+              "type": "ai_vectorStore",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ollama Embeddings": {
+        "ai_embedding": [
+          [
+            {
+              "node": "Qdrant Vector Store",
+              "type": "ai_embedding",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Vector Store Retriever": {
+        "ai_retriever": [
+          [
+            {
+              "node": "Question Answering Chain",
+              "type": "ai_retriever",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Question Answering Chain": {
+        "main": [
+          []
+        ]
+      },
+      "When chat message received": {
+        "main": [
+          [
+            {
+              "node": "Question Answering Chain",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {},
+    "staticData": null,
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "9bba150b-b451-457c-b040-836c5e805b24",
+    "activeVersionId": "730630f9-dd55-49b2-ac29-7146955a9140",
+    "versionCounter": 35,
+    "triggerCount": 1,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-04-14T11:48:33.130Z",
+        "createdAt": "2026-04-14T11:48:33.130Z",
+        "role": "workflow:owner",
+        "workflowId": "nQjnLUKAEuy82DSP",
+        "projectId": "QIhKzmruH08LVbsX",
+        "project": {
+          "updatedAt": "2026-04-14T11:48:41.692Z",
+          "createdAt": "2026-04-14T09:08:32.422Z",
+          "id": "QIhKzmruH08LVbsX",
+          "name": "Рамис Назаров <nazarov.ramis66@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "6b44d551-c1e8-4d95-a141-3c33877749ea"
+        }
+      }
+    ]
+  }
+]

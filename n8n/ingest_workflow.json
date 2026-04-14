@@ -1,50 +1,258 @@
-{
-  "name": "Local RAG Ingest",
-  "nodes": [
-    {
-      "parameters": {},
-      "id": "manual-trigger",
-      "name": "Manual Trigger",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
-      "position": [
-        260,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://app:8000/ingest",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "{\n  \"csv_file_path\": \"data/sample_companies.csv\"\n}",
-        "options": {}
-      },
-      "id": "http-ingest",
-      "name": "POST /ingest",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        540,
-        300
-      ]
-    }
-  ],
-  "connections": {
-    "Manual Trigger": {
-      "main": [
-        [
-          {
-            "node": "POST /ingest",
-            "type": "main",
-            "index": 0
-          }
+[
+  {
+    "updatedAt": "2026-04-14T17:03:38.775Z",
+    "createdAt": "2026-04-14T16:56:17.975Z",
+    "id": "W0IPJ5ICZbJWoejV",
+    "name": "Local RAG Ingest V2",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {},
+        "id": "manual-trigger",
+        "name": "Manual Trigger",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
         ]
-      ]
-    }
-  },
-  "active": false,
-  "settings": {},
-  "versionId": "ingest-v1"
-}
+      },
+      {
+        "parameters": {
+          "fileSelector": "/home/node/.n8n-files/sample_companies.csv",
+          "options": {}
+        },
+        "id": "read-file",
+        "name": "Read CSV",
+        "type": "n8n-nodes-base.readWriteFile",
+        "typeVersion": 1,
+        "position": [
+          208,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "options": {
+            "headerRow": true
+          }
+        },
+        "id": "extract-file",
+        "name": "Spreadsheet File",
+        "type": "n8n-nodes-base.spreadsheetFile",
+        "typeVersion": 2,
+        "position": [
+          400,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "return $input.all().map((item) => {\n  const row = item.json;\n  const bin = String(row['БИН'] ?? '').trim();\n  const name = String(row['Название'] ?? '').trim();\n  const city = String(row['Город'] ?? '').trim();\n  const activity = String(row['Вид деятельности'] ?? '').trim();\n  const status = String(row['Статус'] ?? '').trim();\n  const registrationDate = String(row['Дата регистрации'] ?? '').trim();\n\n  return {\n    json: {\n      pageContent: `БИН: ${bin}\\nНазвание: ${name}\\nГород: ${city}\\nВид деятельности: ${activity}\\nСтатус: ${status}\\nДата регистрации: ${registrationDate}`,\n      bin,\n      name,\n      city,\n      activity,\n      status,\n      registration_date: registrationDate\n    }\n  };\n});"
+        },
+        "id": "code",
+        "name": "Format Payload",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          608,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "options": {
+            "pointers": "/pageContent",
+            "metadata": {
+              "metadataValues": [
+                {
+                  "name": "bin",
+                  "value": "={{ $json.bin }}"
+                },
+                {
+                  "name": "name",
+                  "value": "={{ $json.name }}"
+                },
+                {
+                  "name": "city",
+                  "value": "={{ $json.city }}"
+                },
+                {
+                  "name": "activity",
+                  "value": "={{ $json.activity }}"
+                },
+                {
+                  "name": "status",
+                  "value": "={{ $json.status }}"
+                },
+                {
+                  "name": "registration_date",
+                  "value": "={{ $json.registration_date }}"
+                }
+              ]
+            }
+          }
+        },
+        "id": "default-data-loader",
+        "name": "Default Data Loader",
+        "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+        "typeVersion": 1.1,
+        "position": [
+          800,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "mode": "insert",
+          "qdrantCollection": {
+            "mode": "list",
+            "value": "kz_companies"
+          },
+          "options": {
+            "contentPayloadKey": "pageContent",
+            "metadataPayloadKey": "metadata"
+          }
+        },
+        "id": "qdrant",
+        "name": "Qdrant Vector Store",
+        "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+        "typeVersion": 1.1,
+        "position": [
+          1008,
+          0
+        ],
+        "credentials": {
+          "qdrantApi": {
+            "id": "pAgsxavxE7SUpUsV",
+            "name": "QdrantApi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": "bge-m3:latest"
+        },
+        "id": "ollama-embeddings",
+        "name": "Ollama Embeddings",
+        "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+        "typeVersion": 1,
+        "position": [
+          1072,
+          256
+        ],
+        "credentials": {
+          "ollamaApi": {
+            "id": "UzaVRkhjopgk8Rvh",
+            "name": "Ollama account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Manual Trigger": {
+        "main": [
+          [
+            {
+              "node": "Read CSV",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read CSV": {
+        "main": [
+          [
+            {
+              "node": "Spreadsheet File",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Spreadsheet File": {
+        "main": [
+          [
+            {
+              "node": "Format Payload",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Payload": {
+        "main": [
+          [
+            {
+              "node": "Qdrant Vector Store",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Default Data Loader",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Default Data Loader": {
+        "ai_document": [
+          [
+            {
+              "node": "Qdrant Vector Store",
+              "type": "ai_document",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ollama Embeddings": {
+        "ai_embedding": [
+          [
+            {
+              "node": "Qdrant Vector Store",
+              "type": "ai_embedding",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {},
+    "staticData": null,
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "808dbf00-051d-4561-bd65-d2d4b6feb42f",
+    "activeVersionId": null,
+    "versionCounter": 3,
+    "triggerCount": 0,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-04-14T16:56:17.980Z",
+        "createdAt": "2026-04-14T16:56:17.980Z",
+        "role": "workflow:owner",
+        "workflowId": "W0IPJ5ICZbJWoejV",
+        "projectId": "QIhKzmruH08LVbsX",
+        "project": {
+          "updatedAt": "2026-04-14T11:48:41.692Z",
+          "createdAt": "2026-04-14T09:08:32.422Z",
+          "id": "QIhKzmruH08LVbsX",
+          "name": "Рамис Назаров <nazarov.ramis66@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "6b44d551-c1e8-4d95-a141-3c33877749ea"
+        }
+      }
+    ]
+  }
+]

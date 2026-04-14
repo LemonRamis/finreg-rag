@@ -1,171 +1,98 @@
-# Локальный MVP RAG для поиска по CSV базе юрлиц Казахстана
+# Локальный MVP RAG для поиска по CSV базе юрлиц Казахстана (Low-Code)
 
-Простой полностью локальный RAG-пайплайн:
+Простой полностью локальный RAG-пайплайн, реализованный **исключительно визуальными средствами (n8n Advanced AI)** без использования самописного Python-бэкенда.
 
-- `FastAPI` отвечает за ingest и retrieval.
-- `Qdrant` хранит embeddings и metadata.
-- `Ollama` запускает локальную LLM `qwen3.5:4b`.
-- `BAAI/bge-m3` используется для embeddings.
-- `n8n` оркестрирует два workflow: ingest и query.
+- `n8n` выступает полноценным оркестратором: загружает CSV, чанкует, встраивает (embeds) и извлекает данные (retrieves).
+- `Qdrant` хранит векторные эмбеддинги и метаданные.
+- `Ollama` запускает локальную LLM `qwen3.5:4b` и модель эмбеддингов `bge-m3`.
 
 ## Архитектура
 
-### Ingest
+### Ingest (n8n Workflow)
+1. Нода `Read CSV` читает локальный файл из `data/`.
+2. Нода `Spreadsheet File` сериализует CSV в построчные JSON-объекты.
+3. Нода `Code` формирует единый текст `pageContent` на одну компанию и подготавливает поля метаданных.
+4. Нода `Default Data Loader` в режиме `Load All Input Data` с JSON pointer `/pageContent` превращает запись в один LangChain-документ и прикладывает метаданные.
+5. Нода `Qdrant Vector Store` через "кубик" `Ollama Embeddings` высчитывает вектор документа и делает Upsert в коллекцию.
 
-1. CSV читается построчно.
-2. Каждая строка превращается в один документ.
-3. Для документа считается embedding через `BAAI/bge-m3`.
-4. В `Qdrant` создается коллекция `kz_companies`.
-5. В коллекцию загружаются:
-   - vector
-   - payload: `bin`, `name`, `city`, `activity`, `status`, `registration_date`, `document`
-
-### Retrieval
-
-1. `/query` принимает вопрос.
-2. Для вопроса считается embedding.
-3. Выполняется `top-k` semantic search в `Qdrant`.
-4. Из найденных документов собирается контекст.
-5. Контекст отправляется в `Ollama` с моделью `qwen3.5:4b`.
-6. LLM отвечает только на основе найденного контекста.
-
-Промпт для LLM:
-
-```text
-Ты работаешь только на основе переданного контекста.
-Ответь кратко и по делу.
-Если данных недостаточно — скажи об этом.
-Не придумывай информацию.
-```
+### Retrieval (n8n Workflow)
+1. Webhook `POST /rag-query` принимает вопрос в JSON-поле `chatInput`.
+2. Нода `Qdrant Vector Store` открывает коллекцию `kz_companies`.
+3. Нода `Vector Store Retriever` запрашивает `Top-K = 3` ближайших документов.
+4. Нода `Question Answering Chain` (LangChain) связывает модель `Ollama (qwen)` и ретривер, добавляет найденный контекст в промпт и генерирует ответ.
 
 ## Структура проекта
 
 ```text
 .
-├── app
-│   ├── config.py
-│   ├── embeddings.py
-│   ├── ingest.py
-│   ├── llm.py
-│   ├── main.py
-│   └── qdrant_store.py
 ├── data
 │   └── sample_companies.csv
 ├── n8n
 │   ├── ingest_workflow.json
-│   └── query_workflow.json
+│   ├── query_workflow.json
+│   ├── ingest_workflow_v2.json
+│   └── query_workflow_v2.json
 ├── docker-compose.yml
-├── Dockerfile
 ├── README.md
-└── requirements.txt
+└── Task
 ```
 
 ## Как запустить
 
-### 1. Поднять сервисы
+### 1. Поднять сервисы (n8n, Qdrant, Ollama)
 
 ```bash
-docker compose -p finreg up -d --build
+docker compose -p finreg up -d
 ```
 
-### 2. Скачать локальную LLM в Ollama
+### 2. Скачать локальные модели в Ollama
 
+Для генерации ответов (LLM):
 ```bash
 docker exec rag-ollama ollama pull qwen3.5:4b
 ```
 
-### 3. Проверить, что API поднялся
+Для эмбеддингов:
+```bash
+docker exec rag-ollama ollama pull bge-m3
+```
+
+### 3. Настройка n8n
+
+1. Откройте `http://localhost:5678` в браузере.
+2. Пройдите быструю настройку (если запускаете впервые).
+3. Создайте новые Credentials для:
+   - **Ollama**: `http://ollama:11434`
+   - **Qdrant**: `http://qdrant:6333`
+4. Импортируйте сначала `n8n/ingest_workflow_v2.json`.
+5. Перед повторной загрузкой удалите старую коллекцию, если она уже была заполнена неверно:
 
 ```bash
-curl http://localhost:8000/health
+curl -X DELETE http://localhost:6333/collections/kz_companies
 ```
 
-Ожидаемый ответ:
-
-```json
-{"status":"ok"}
-```
-
-## Как выполнить ingest
-
-Через API:
-
-```bash
-curl -X POST http://localhost:8000/ingest \
-  -H "Content-Type: application/json" \
-  -d '{"csv_file_path":"data/sample_companies.csv"}'
-```
-
-Через n8n:
-
-1. Открыть `http://localhost:5678`
-2. Импортировать `n8n/ingest_workflow.json`
-3. Запустить workflow вручную через `Manual Trigger`
+6. Запустите ingest workflow через `Execute workflow`, чтобы заново загрузить CSV в векторную БД.
+7. Импортируйте `n8n/query_workflow_v2.json` и опубликуйте workflow, чтобы production webhook начал принимать запросы.
 
 ## Как сделать запрос
 
-Через API:
-
-```bash
-curl -X POST http://localhost:8000/query \
-  -H "Content-Type: application/json" \
-  -d '{"question":"Найди активные IT-компании в Алматы","top_k":5}'
-```
-
-Через n8n:
-
-1. Импортировать `n8n/query_workflow.json`
-2. Активировать workflow
-3. Отправить POST-запрос на webhook:
+Через API webhook, который прослушивает n8n:
 
 ```bash
 curl -X POST http://localhost:5678/webhook/rag-query \
   -H "Content-Type: application/json" \
-  -d '{"question":"Найди строительные компании в Астане"}'
+  -d '{"chatInput":"Найди активные IT-компании в Алматы"}'
 ```
 
-## Проверка на 3 запросах
+Ожидаемый формат ответа:
 
-После ingest можно проверить систему на таких вопросах:
-
-1. `Найди активные IT-компании в Алматы`
-2. `Какой статус у компании ТОО "НурТех Трейд"`
-3. `Найди строительные компании в Астане`
-
-Примечание: в приложенном `sample_companies.csv` нет явной активной IT-компании из Алматы, поэтому для первого запроса корректным поведением будет либо показать ближайшие семантически подходящие записи, либо честно ответить, что точных данных в контексте недостаточно.
-
-Примеры запросов:
-
-```bash
-curl -X POST http://localhost:8000/query \
-  -H "Content-Type: application/json" \
-  -d '{"question":"Найди активные IT-компании в Алматы"}'
-
-curl -X POST http://localhost:8000/query \
-  -H "Content-Type: application/json" \
-  -d '{"question":"Какой статус у компании ТОО \"НурТех Трейд\""}'
-
-curl -X POST http://localhost:8000/query \
-  -H "Content-Type: application/json" \
-  -d '{"question":"Найди строительные компании в Астане"}'
+```json
+{
+  "response": "..."
+}
 ```
 
-## Актуальный статус
+## Важно (ограничения MVP)
 
-- Стек протестирован локально в составе `rag-app`, `rag-qdrant`, `rag-ollama`, `rag-n8n`.
-- `GET /health` отвечает `200 OK`.
-- `POST /ingest` успешно индексирует `200` записей из `data/sample_companies.csv`.
-- `POST /query` успешно возвращает ответ. Для вопроса `Какой статус у компании ТОО "НурТех Трейд"` система отвечает: `Активно.`
-
-Важно:
-
-- После долгой работы Docker Desktop на macOS `Ollama` может временно не загружать модель из-за состояния памяти Docker VM.
-- Если `POST /query` падает по памяти или модель не стартует, самый надёжный способ восстановления — перезапустить Docker Desktop и снова поднять стек.
-
-## Замечания
-
-- Chunking намеренно максимально простой: `1 CSV row = 1 document`.
-- Payload хранится отдельно в `Qdrant`, чтобы было удобно показывать найденные поля.
-- Первая загрузка `BAAI/bge-m3` может занять время, потому что модель будет скачана локально в cache контейнера `app`.
-- Первая загрузка `qwen3.5:4b` в `Ollama` тоже может занять несколько минут.
-- Решение не использует внешние inference API: retrieval и generation выполняются локально через `Qdrant` и `Ollama`.
+- Для стабильной локальной работы в текущем окружении используется `qwen3.5:4b` вместо `qwen3.5:9b` (ограничение RAM/CPU при inference).
+- Решение сделано в формате Low-Code через `n8n` (без отдельного FastAPI-сервиса), при этом весь RAG pipeline полностью локальный: CSV ingest -> embeddings -> Qdrant -> retrieval -> Ollama.
