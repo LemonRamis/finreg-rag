@@ -31,7 +31,7 @@
         "parameters": {
           "query": "={{ $json.chatInput }}",
           "options": {
-            "systemPromptTemplate": "Ты работаешь только на основе переданного контекста.\nОтветь кратко и по делу.\nЕсли данных недостаточно — скажи об этом.\nНе придумывай информацию.\nНе выводи рассуждения, анализ и \"Thinking Process\".\nВерни только итоговый ответ на русском языке.\n\nКонтекст:\n{context}\n\nВопрос:\n{input}"
+            "systemPromptTemplate": "Ты работаешь только на основе переданного контекста.\nНе придумывай информацию.\nНе выводи рассуждения, анализ, шаги решения и \"Thinking Process\".\nВерни строго JSON-объект и ничего больше:\n{{\"answer\":\"...\"}}\nЕсли данных недостаточно, верни:\n{{\"answer\":\"Недостаточно данных в контексте.\"}}\n\nКонтекст:\n{context}\n\nВопрос:\n{input}"
           }
         },
         "id": "qa-chain",
@@ -47,10 +47,13 @@
         "parameters": {
           "model": "gemma3:4b",
           "options": {
-            "temperature": 0.2,
+            "temperature": 0,
             "keepAlive": "5m",
             "numCtx": 4096,
-            "numPredict": 256
+            "numPredict": 256,
+            "topK": 20,
+            "topP": 0.9,
+            "format": "json"
           }
         },
         "id": "ollama-model",

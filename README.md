@@ -154,6 +154,22 @@ curl -X POST "http://localhost:5678/webhook/62eb0006-34f6-4d09-987e-edf71ca0b255
 
 - Отдельная краткая инструкция: [MANAGER_DEMO_INSTRUCTIONS.md](/Users/ramis/Работа/Проекты/ФИНРЕГ/MANAGER_DEMO_INSTRUCTIONS.md)
 
+## Красивый Ответ В Терминале
+
+Для удобного вывода без сырого JSON используй скрипт:
+
+```bash
+./scripts/query_pretty.sh "Найди активные IT-компании в Алматы"
+```
+
+По умолчанию он ходит в локальный webhook (`localhost:5678`).
+Для публичного URL можно переопределить переменную:
+
+```bash
+WEBHOOK_URL="https://pour-magazine-qualified-gel.trycloudflare.com/webhook/62eb0006-34f6-4d09-987e-edf71ca0b255/chat" \
+./scripts/query_pretty.sh "Какой статус у компании ТОО \"НурТех Групп\""
+```
+
 ## Итог
 
 Проект демонстрирует полностью локальный RAG pipeline:
