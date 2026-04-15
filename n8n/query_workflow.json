@@ -10,7 +10,12 @@
     "nodes": [
       {
         "parameters": {
-          "options": {}
+          "public": true,
+          "mode": "webhook",
+          "authentication": "none",
+          "options": {
+            "responseMode": "lastNode"
+          }
         },
         "id": "chat-trigger",
         "name": "When chat message received",
@@ -26,7 +31,7 @@
         "parameters": {
           "query": "={{ $json.chatInput }}",
           "options": {
-            "systemPromptTemplate": "Ты работаешь только на основе переданного контекста.\nОтветь кратко и по делу.\nЕсли данных недостаточно — скажи об этом.\nНе придумывай информацию.\n\nКонтекст:\n{context}\n\nВопрос:\n{input}"
+            "systemPromptTemplate": "Ты работаешь только на основе переданного контекста.\nОтветь кратко и по делу.\nЕсли данных недостаточно — скажи об этом.\nНе придумывай информацию.\nНе выводи рассуждения, анализ и \"Thinking Process\".\nВерни только итоговый ответ на русском языке.\n\nКонтекст:\n{context}\n\nВопрос:\n{input}"
           }
         },
         "id": "qa-chain",
@@ -40,12 +45,12 @@
       },
       {
         "parameters": {
-          "model": "qwen3.5:4b",
+          "model": "gemma3:4b",
           "options": {
             "temperature": 0.2,
             "keepAlive": "5m",
             "numCtx": 4096,
-            "numPredict": 512
+            "numPredict": 256
           }
         },
         "id": "ollama-model",
@@ -196,7 +201,7 @@
     },
     "pinData": {},
     "versionId": "9bba150b-b451-457c-b040-836c5e805b24",
-    "activeVersionId": "730630f9-dd55-49b2-ac29-7146955a9140",
+    "activeVersionId": "9bba150b-b451-457c-b040-836c5e805b24",
     "versionCounter": 35,
     "triggerCount": 1,
     "tags": [],

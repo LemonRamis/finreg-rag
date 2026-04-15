@@ -15,3 +15,7 @@ __pycache__/
 # Editor/system files
 .idea/
 .vscode/
+
+# n8n runtime/debug exports
+n8n/_active_query_check*.json
+n8n/query_workflow_live.json

@@ -6,16 +6,17 @@
 
 - `n8n` оркестрирует загрузку CSV, подготовку документов и RAG-запрос.
 - `Qdrant` хранит эмбеддинги и метаданные записей.
-- `Ollama` запускает локальную LLM `qwen3.5:4b` и модель эмбеддингов `bge-m3`.
+- `Ollama` запускает локальную LLM `gemma3:4b` и модель эмбеддингов `bge-m3`.
 - `one-row-per-chunk`: каждая строка CSV превращается в один документ.
 - Все компоненты запускаются локально через Docker Compose.
+- Тестовый стенд: `MacBook Air 15" (M4), 24 GB RAM / 512 GB SSD`.
 
 ## Стек
 
 - `n8n:2.2.6`
 - `qdrant/qdrant:v1.16.2`
 - `ollama/ollama:latest`
-- `LLM`: `qwen3.5:4b`
+- `LLM`: `gemma3:4b`
 - `Embeddings`: `bge-m3`
 
 ## Архитектура
@@ -44,7 +45,7 @@
 2. `Ollama Embeddings` считает embedding вопроса.
 3. `Qdrant Vector Store` ищет похожие документы в коллекции `kz_companies`.
 4. `Vector Store Retriever` возвращает `topK = 3` документов.
-5. `Question Answering Chain` передаёт найденный контекст в `qwen3.5:4b`.
+5. `Question Answering Chain` передаёт найденный контекст в `gemma3:4b`.
 6. Модель отвечает только по контексту.
 
 ## Структура проекта
@@ -56,6 +57,7 @@
 ├── n8n
 │   ├── ingest_workflow.json
 │   └── query_workflow.json
+├── MANAGER_DEMO_INSTRUCTIONS.md
 ├── docker-compose.yml
 ├── README.md
 └── Task
@@ -78,7 +80,7 @@ docker compose -p finreg up -d
 ### 2. Скачать модели в Ollama
 
 ```bash
-docker exec rag-ollama ollama pull qwen3.5:4b
+docker exec rag-ollama ollama pull gemma3:4b
 docker exec rag-ollama ollama pull bge-m3
 ```
 
@@ -104,12 +106,22 @@ curl -X DELETE http://localhost:6333/collections/kz_companies
 
 ## Как сделать запрос
 
-Текущая версия query workflow использует встроенный `n8n Chat Trigger`.
+Текущая версия query workflow использует `Chat Trigger` в публичном webhook-режиме.
 
 1. Импортируй workflow [query_workflow.json](/Users/ramis/Работа/Проекты/ФИНРЕГ/n8n/query_workflow.json).
 2. Открой workflow `Local RAG Query V2`.
 3. Запусти или опубликуй workflow.
-4. Отправь вопрос через встроенную панель чата в n8n.
+4. Отправь вопрос через встроенную панель чата в n8n или через webhook:
+
+```bash
+curl -X POST "http://localhost:5678/webhook/62eb0006-34f6-4d09-987e-edf71ca0b255/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "sendMessage",
+    "chatInput": "Найди активные IT-компании в Алматы",
+    "sessionId": "local-test"
+  }'
+```
 
 Примеры запросов:
 
@@ -134,9 +146,13 @@ curl -X DELETE http://localhost:6333/collections/kz_companies
 ## Ограничения MVP
 
 - Проект реализован в low-code формате через `n8n`, без отдельного backend-сервиса.
-- Для стабильной локальной работы используется `qwen3.5:4b`, а не `qwen3.5:9b`: модель `9b` в текущем окружении упирается в RAM/CPU.
+- Для стабильной локальной работы используется `gemma3:4b`: модель компактная и подходит для локального CPU/RAM-профиля.
 - На CPU inference может быть медленным, особенно на длинном контексте.
 - Workflow ориентирован на локальную демонстрацию и smoke test, а не на production-нагрузку.
+
+## Демо Для Менеджера
+
+- Отдельная краткая инструкция: [MANAGER_DEMO_INSTRUCTIONS.md](/Users/ramis/Работа/Проекты/ФИНРЕГ/MANAGER_DEMO_INSTRUCTIONS.md)
 
 ## Итог
 

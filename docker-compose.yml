@@ -38,5 +38,4 @@ services:
 volumes:
   qdrant_storage:
   ollama_storage:
-  huggingface_cache:
   n8n_storage:
