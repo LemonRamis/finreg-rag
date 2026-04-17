@@ -28,7 +28,7 @@
 - `docker compose -p finreg ps`: контейнеры `rag-n8n`, `rag-qdrant`, `rag-ollama` в статусе `Up`.
 - В Qdrant есть коллекция `kz_companies`; количество точек: `200`.
 - В `data/sample_companies.csv` количество строк (без заголовка): `200`.
-- End-to-end запросы через `./scripts/query_pretty.sh` стабильно возвращают `HTTP 200`.
+- End-to-end запросы через webhook (`curl`) стабильно возвращают `HTTP 200`.
 - Исправлен критичный кейс: запросы про `активные` компании больше не возвращают записи со статусом `Ликвидировано`.
 - Добавлен hard-guard для unsupported запросов (`выручка`, `крупнейшие`, `топ N` и др.): ответ строго `Недостаточно данных в контексте...`.
 
@@ -61,6 +61,8 @@
 5. `Merge Query And Docs` объединяет стратегию запроса и найденные документы.
 6. `Format Final Answer` детерминированно собирает ответ из `document.metadata` (без генерации фактов моделью), повторно фильтрует записи и добавляет `Подтверждение`.
 7. Для unsupported или пустого результата возвращается строгий safe-fallback: `Недостаточно данных в контексте.`
+
+Важно: нормализация ответа и fallback реализованы только внутри workflow (узел `Format Final Answer`), клиентские скрипты пост-обработки не используются.
 
 ### Анти-галлюцинации (Критично)
 
@@ -206,23 +208,33 @@ curl -sS -X POST http://localhost:6333/collections/kz_companies/points/count \
 
 - Отдельная краткая инструкция: `MANAGER_DEMO_INSTRUCTIONS.md`
 
-## Красивый Ответ В Терминале
+## Проверка Из Терминала (Только Workflow)
 
-Для удобного вывода без сырого JSON используй скрипт:
+Запросы выполняются напрямую в webhook workflow без промежуточных скриптов:
 
 ```bash
-./scripts/query_pretty.sh "Найди активные IT-компании в Алматы"
+curl -sS -X POST "http://localhost:5678/webhook/62eb0006-34f6-4d09-987e-edf71ca0b255/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "sendMessage",
+    "chatInput": "Найди активные IT-компании в Алматы",
+    "sessionId": "local-test"
+  }'
+```
+
+Только текст ответа:
+
+```bash
+curl -sS -X POST "http://localhost:5678/webhook/62eb0006-34f6-4d09-987e-edf71ca0b255/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "sendMessage",
+    "chatInput": "Какой статус у компании ТОО \"НурТех Групп\"?",
+    "sessionId": "local-test"
+  }' | jq -r '.response.text'
 ```
 
 Рекомендация: запускать запросы последовательно (не параллельно), так как локальная LLM на CPU может заметно замедляться при конкурентных вызовах.
-
-По умолчанию он ходит в локальный webhook (`localhost:5678`).
-Для публичного URL можно переопределить переменную:
-
-```bash
-WEBHOOK_URL="https://pour-magazine-qualified-gel.trycloudflare.com/webhook/62eb0006-34f6-4d09-987e-edf71ca0b255/chat" \
-./scripts/query_pretty.sh "Какой статус у компании ТОО \"НурТех Групп\""
-```
 
 ## Итог
 
