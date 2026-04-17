@@ -1,6 +1,6 @@
 [
   {
-    "updatedAt": "2026-04-14T18:34:55.306Z",
+    "updatedAt": "2026-04-17T10:37:17.000Z",
     "createdAt": "2026-04-14T11:48:33.128Z",
     "id": "nQjnLUKAEuy82DSP",
     "name": "Local RAG Query V2",
@@ -12,7 +12,6 @@
         "parameters": {
           "public": true,
           "mode": "webhook",
-          "authentication": "none",
           "options": {
             "responseMode": "lastNode"
           }
@@ -22,16 +21,16 @@
         "type": "@n8n/n8n-nodes-langchain.chatTrigger",
         "typeVersion": 1.4,
         "position": [
-          0,
-          0
+          -208,
+          -128
         ],
         "webhookId": "62eb0006-34f6-4d09-987e-edf71ca0b255"
       },
       {
         "parameters": {
-          "query": "={{ $json.chatInput }}",
+          "query": "={{ $json.retrievalQuery || $json.chatInput }}",
           "options": {
-            "systemPromptTemplate": "Ты работаешь только на основе переданного контекста.\nНе придумывай информацию.\nНе выводи рассуждения, анализ, шаги решения и \"Thinking Process\".\nВерни строго JSON-объект и ничего больше:\n{{\"answer\":\"...\"}}\nЕсли данных недостаточно, верни:\n{{\"answer\":\"Недостаточно данных в контексте.\"}}\n\nКонтекст:\n{context}\n\nВопрос:\n{input}"
+            "systemPromptTemplate": "Ты ассистент поиска по базе юридических лиц Казахстана. Используй только данные из блока Контекст. Не используй внешние знания и не придумывай факты.\\n\\nСначала определи query_mode из строки вида query_mode=... во входном вопросе.\\nВозможные режимы: count, bin_lookup, status_lookup, registration_date_lookup, activity_lookup, list, generic.\\n\\nКритично: нельзя придумывать названия компаний, БИН, города или статусы. Каждая компания в ответе должна существовать в контексте.\\n\\nВерни строго JSON и ничего больше в формате:\\n{{\"query_mode\":\"...\",\"answer\":\"...\",\"count\":0,\"items\":[{{\"bin\":\"...\",\"name\":\"...\",\"city\":\"...\",\"status\":\"...\",\"activity\":\"...\",\"registration_date\":\"...\"}}],\"evidence\":[\"...\"]}}\\n\\nПравила заполнения:\\n1) Для count: count = число уникальных компаний (по БИН) в items, answer = строка с этим числом.\\n2) Для status_lookup/date_lookup/activity_lookup: answer = конкретное значение поля по релевантной компании.\\n3) Для bin_lookup/list/generic: answer = список названий или краткий факт, но только из items.\\n4) evidence — массив коротких строк-подтверждений только из контекста.\\n5) Если релевантных данных нет: answer=\"Недостаточно данных в контексте.\", count=0, items=[], evidence=[].\\n\\nКонтекст:\\n{context}\\n\\nВопрос:\\n{input}"
           }
         },
         "id": "qa-chain",
@@ -39,8 +38,8 @@
         "type": "@n8n/n8n-nodes-langchain.chainRetrievalQa",
         "typeVersion": 1,
         "position": [
-          208,
-          0
+          224,
+          96
         ]
       },
       {
@@ -48,11 +47,11 @@
           "model": "gemma3:4b",
           "options": {
             "temperature": 0,
-            "keepAlive": "5m",
-            "numCtx": 4096,
-            "numPredict": 256,
             "topK": 20,
             "topP": 0.9,
+            "keepAlive": "5m",
+            "numCtx": 2048,
+            "numPredict": 96,
             "format": "json"
           }
         },
@@ -61,8 +60,8 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
         "typeVersion": 1,
         "position": [
-          96,
-          192
+          80,
+          288
         ],
         "credentials": {
           "ollamaApi": {
@@ -80,6 +79,7 @@
             "cachedResultName": "kz_companies"
           },
           "options": {
+            "searchFilterJson": "={{ $json.qdrantFilter || {} }}",
             "contentPayloadKey": "pageContent",
             "metadataPayloadKey": "metadata"
           }
@@ -89,8 +89,8 @@
         "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
         "typeVersion": 1,
         "position": [
-          240,
-          336
+          112,
+          480
         ],
         "credentials": {
           "qdrantApi": {
@@ -108,8 +108,8 @@
         "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
         "typeVersion": 1,
         "position": [
-          112,
-          512
+          -112,
+          288
         ],
         "credentials": {
           "ollamaApi": {
@@ -120,16 +120,85 @@
       },
       {
         "parameters": {
-          "topK": 3
+          "topK": "={{ $json.topK || 6 }}"
         },
         "type": "@n8n/n8n-nodes-langchain.retrieverVectorStore",
         "typeVersion": 1,
         "position": [
-          240,
-          176
+          256,
+          304
         ],
         "id": "28958f3c-d83e-4f14-9c9e-f5cedb0ce86f",
         "name": "Vector Store Retriever"
+      },
+      {
+        "parameters": {
+          "jsCode": "const cityAliases = {\n  'алматы': 'Алматы',\n  'астана': 'Астана',\n  'нур-султан': 'Астана',\n  'нурсултан': 'Астана',\n  'шымкент': 'Шымкент',\n  'караганда': 'Караганда',\n  'актау': 'Актау',\n  'атырау': 'Атырау',\n  'павлодар': 'Павлодар',\n  'костанай': 'Костанай',\n  'усть-каменогорск': 'Усть-Каменогорск',\n};\n\nconst knownActivities = [\n  'Строительство зданий и сооружений',\n  'Консалтинговые услуги',\n  'Образовательные услуги',\n  'Телекоммуникации',\n  'Розничная торговля',\n  'Техническое обслуживание оборудования',\n  'Производство продуктов питания',\n  'Сельское хозяйство',\n  'Добыча полезных ископаемых',\n  'Транспорт и логистика',\n  'Медицинские услуги',\n  'Архитектура и проектирование',\n  'Оптовая торговля',\n  'Рекламные услуги',\n  'Разработка программного обеспечения',\n  'Юридические услуги',\n  'Производство мебели',\n  'Финансовые услуги',\n  'Бухгалтерский учёт и аудит',\n  'Ресторанный бизнес',\n];\n\nfunction detectCity(lower) {\n  const cityRules = [\n    { canon: 'Астана', regex: /(нур-?султан|астан)/i },\n    { canon: 'Алматы', regex: /(алмат)/i },\n    { canon: 'Шымкент', regex: /(шымкент)/i },\n    { canon: 'Караганда', regex: /(караганд)/i },\n    { canon: 'Актау', regex: /(актау)/i },\n    { canon: 'Атырау', regex: /(атырау)/i },\n    { canon: 'Павлодар', regex: /(павлодар)/i },\n    { canon: 'Костанай', regex: /(костанай)/i },\n    { canon: 'Усть-Каменогорск', regex: /(усть-?каменогорск)/i },\n  ];\n\n  for (const rule of cityRules) {\n    if (rule.regex.test(lower)) return rule.canon;\n  }\n\n  for (const [alias, canon] of Object.entries(cityAliases)) {\n    if (lower.includes(alias)) return canon;\n  }\n\n  return null;\n}\n\nfunction detectActivity(chatInput, lower) {\n  // 1) Exact activity phrase from dataset\n  for (const v of knownActivities) {\n    if (lower.includes(v.toLowerCase())) return v;\n  }\n\n  // 2) Heuristic mapping for common intents\n  if (/(разработк|программ|it|айти|software|технолог)/i.test(lower)) {\n    return 'Разработка программного обеспечения';\n  }\n  if (/(строит|construction|зданий|сооружений)/i.test(lower)) {\n    return 'Строительство зданий и сооружений';\n  }\n  if (/(технич|обслуживан.*оборуд)/i.test(lower)) {\n    return 'Техническое обслуживание оборудования';\n  }\n  if (/(архитект|проектирован)/i.test(lower)) {\n    return 'Архитектура и проектирование';\n  }\n  if (/(транспорт|логист|доставк|склад)/i.test(lower)) {\n    return 'Транспорт и логистика';\n  }\n  if (/(оптов)/i.test(lower)) {\n    return 'Оптовая торговля';\n  }\n  if (/(рознич)/i.test(lower)) {\n    return 'Розничная торговля';\n  }\n  if (/(финанс|банк|инвест|страх)/i.test(lower)) {\n    return 'Финансовые услуги';\n  }\n\n  return null;\n}\n\nfunction detectCompanyName(chatInput) {\n  const m = chatInput.match(/(?:ТОО|АО|ИП)\\s+\"[^\"]+\"/i);\n  if (m && m[0]) {\n    // normalize legal form upper-case and spacing\n    return m[0]\n      .replace(/^тоо/i, 'ТОО')\n      .replace(/^ао/i, 'АО')\n      .replace(/^ип/i, 'ИП')\n      .replace(/\\s+/g, ' ')\n      .trim();\n  }\n  return null;\n}\n\nreturn $input.all().map((item) => {\n  const original = item.json || {};\n  const chatInput = String(original.chatInput ?? '').trim();\n  const lower = chatInput.toLowerCase();\n\n  const city = detectCity(lower);\n  const activity = detectActivity(chatInput, lower);\n  const companyName = detectCompanyName(chatInput);\n\n  const binMatch = chatInput.match(/\\b\\d{12}\\b/);\n  const bin = binMatch ? binMatch[0] : null;\n\n  let status = null;\n  if (lower.includes('неактив') || lower.includes('ликвид') || lower.includes('закрыт') || lower.includes('приостанов')) {\n    status = 'Ликвидировано';\n  } else if (lower.includes('активн')) {\n    status = 'Активно';\n  }\n\n  const isCount = /(сколько|количество|число)/i.test(lower);\n  const isStatusLookup = /(какой\\s+статус|статус\\s+у\\s+компани)/i.test(lower);\n  const isDateLookup = /(дата\\s+регистрац|когда\\s+зарегистр)/i.test(lower);\n  const isActivityLookup = /(вид\\s+деятельност)/i.test(lower);\n  const isList = /(найди|покажи|перечисли|какие|список|все|подбери)/i.test(lower);\n\n  // Hard anti-hallucination guard: detect unsupported asks for fields absent in dataset.\n  const asksUnsupportedField = /(выручк|доход|оборот|прибыл|маржин|ebitda|дивиденд|капитализац|активы|баланс|телефон|e-?mail|почт|сайт|адрес|руководител|учредител|директор|владелец|штат|сотрудник)/i.test(lower);\n  const asksRankingWithoutMetric = /(крупнейш|топ\\s*\\d+|лучши|сам(ый|ая|ое|ые))/i.test(lower);\n\n  let unsupportedReason = null;\n  if (asksUnsupportedField) {\n    unsupportedReason = 'Запрошены поля, которых нет в источнике данных.';\n  } else if (asksRankingWithoutMetric) {\n    unsupportedReason = 'Запрошен рейтинг/сравнение, но в источнике нет метрик ранжирования.';\n  }\n\n  let queryMode = 'generic';\n  if (unsupportedReason) queryMode = 'unsupported';\n  else if (isCount) queryMode = 'count';\n  else if (bin) queryMode = 'bin_lookup';\n  else if (isStatusLookup) queryMode = 'status_lookup';\n  else if (isDateLookup) queryMode = 'registration_date_lookup';\n  else if (isActivityLookup) queryMode = 'activity_lookup';\n  else if (isList) queryMode = 'list';\n\n  let topK = 10;\n  if (queryMode === 'unsupported') topK = 1;\n  else if (queryMode === 'bin_lookup') topK = 1;\n  else if (queryMode === 'count') topK = 200;\n  else if (queryMode === 'list') topK = 50;\n\n  const must = [];\n  if (bin) must.push({ key: 'metadata.bin', match: { value: bin } });\n  if (companyName) must.push({ key: 'metadata.name', match: { value: companyName } });\n  if (city) must.push({ key: 'metadata.city', match: { value: city } });\n  if (status) must.push({ key: 'metadata.status', match: { value: status } });\n  if (activity) must.push({ key: 'metadata.activity', match: { value: activity } });\n\n  const qdrantFilter = must.length ? { must } : {};\n\n  const filterParts = [];\n  if (bin) filterParts.push(`бин=${bin}`);\n  if (companyName) filterParts.push(`название=${companyName}`);\n  if (city) filterParts.push(`город=${city}`);\n  if (status) filterParts.push(`статус=${status}`);\n  if (activity) filterParts.push(`вид_деятельности=${activity}`);\n\n  const retrievalHint = [\n    `query_mode=${queryMode}`,\n    unsupportedReason ? `unsupported_reason=${unsupportedReason}` : '',\n    'Используй только факты из контекста.',\n    'Если подходящих записей нет, верни недостаточно данных.',\n  ].filter(Boolean).join('\\n');\n\n  const retrievalQuery = [\n    retrievalHint,\n    chatInput,\n    filterParts.length ? `Фильтры: ${filterParts.join(', ')}` : '',\n  ].filter(Boolean).join('\\n');\n\n  return {\n    json: {\n      ...original,\n      chatInput,\n      queryMode,\n      topK,\n      unsupportedReason,\n      parsedFilters: {\n        bin,\n        companyName,\n        city,\n        status,\n        activity,\n      },\n      qdrantFilter,\n      retrievalQuery,\n    },\n  };\n});"
+        },
+        "id": "prepare-query-strategy",
+        "name": "Prepare Query Strategy",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          16,
+          -128
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\n\nfunction compact(s) {\n  return String(s || '').replace(/\\s+/g, ' ').trim();\n}\n\nfunction pickQueryItem(allItems) {\n  // Prefer the original strategy item, not document items from Qdrant load.\n  return allItems.find((i) => {\n    const j = i?.json || {};\n    return Boolean(j.queryMode || j.qdrantFilter || j.parsedFilters || j.topK || j.unsupportedReason);\n  }) || { json: {} };\n}\n\nconst queryItem = pickQueryItem(items);\nconst query = queryItem.json || {};\nconst filters = (query.parsedFilters && typeof query.parsedFilters === 'object') ? query.parsedFilters : {};\nconst queryMode = compact(query.queryMode || 'generic');\nconst unsupportedReason = compact(query.unsupportedReason || '');\n\nif (queryMode === 'unsupported' || unsupportedReason) {\n  return [{\n    json: {\n      response: {\n        text: 'Недостаточно данных в контексте. Доступны только поля: БИН, название, город, статус, вид деятельности, дата регистрации.',\n      },\n    },\n  }];\n}\n\nconst docs = items\n  .filter((i) => i?.json?.document)\n  .map((i) => i.json.document)\n  .filter(Boolean);\n\nfunction normalizeRecord(doc) {\n  const m = doc?.metadata || {};\n  const rec = {\n    bin: compact(m.bin),\n    name: compact(m.name),\n    city: compact(m.city),\n    status: compact(m.status),\n    activity: compact(m.activity),\n    registration_date: compact(m.registration_date),\n  };\n  if (!/^\\d{12}$/.test(rec.bin)) return null;\n  return rec;\n}\n\nlet records = docs.map(normalizeRecord).filter(Boolean);\n\n// Deduplicate by BIN to avoid repeated evidence lines.\nconst uniqMap = new Map();\nfor (const r of records) {\n  if (!uniqMap.has(r.bin)) uniqMap.set(r.bin, r);\n}\nrecords = [...uniqMap.values()];\n\nfunction matchesFilters(r) {\n  if (filters.bin && r.bin !== String(filters.bin)) return false;\n  if (filters.companyName && r.name !== String(filters.companyName)) return false;\n  if (filters.city && r.city !== String(filters.city)) return false;\n  if (filters.status && r.status !== String(filters.status)) return false;\n  if (filters.activity && r.activity !== String(filters.activity)) return false;\n  return true;\n}\n\nconst filtered = records.filter(matchesFilters);\n\nif (!filtered.length) {\n  return [{ json: { response: { text: 'Недостаточно данных в контексте.' } } }];\n}\n\nlet answer = '';\nif (queryMode === 'count') {\n  answer = String(filtered.length);\n} else if (queryMode === 'status_lookup') {\n  answer = filtered[0].status || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'registration_date_lookup') {\n  answer = filtered[0].registration_date || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'activity_lookup') {\n  answer = filtered[0].activity || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'bin_lookup') {\n  const r = filtered[0];\n  answer = `${r.name}, ${r.city}, ${r.status}`;\n} else {\n  const names = [...new Set(filtered.map((r) => r.name).filter(Boolean))].slice(0, 5);\n  answer = names.length ? names.join(', ') : 'Недостаточно данных в контексте.';\n}\n\nconst evidenceLines = filtered.slice(0, 3).map((r) => {\n  return `Название: ${r.name} | БИН: ${r.bin} | Город: ${r.city} | Статус: ${r.status}`;\n});\n\nlet finalText = answer;\nif (evidenceLines.length) {\n  finalText += '\\n\\nПодтверждение:\\n' + evidenceLines.map((x) => `- ${x}`).join('\\n');\n}\n\nreturn [{ json: { response: { text: finalText } } }];"
+        },
+        "id": "format-final-answer",
+        "name": "Format Final Answer",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          736,
+          96
+        ]
+      },
+      {
+        "parameters": {
+          "mode": "load",
+          "qdrantCollection": {
+            "__rl": true,
+            "value": "kz_companies",
+            "mode": "list",
+            "cachedResultName": "kz_companies"
+          },
+          "prompt": "={{ $json.retrievalQuery || $json.chatInput }}",
+          "topK": "={{ $json.topK || 10 }}",
+          "options": {
+            "searchFilterJson": "={{ $json.qdrantFilter || {} }}",
+            "contentPayloadKey": "pageContent",
+            "metadataPayloadKey": "metadata"
+          }
+        },
+        "id": "qdrant-docs-load",
+        "name": "Qdrant Docs Load",
+        "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+        "typeVersion": 1,
+        "position": [
+          224,
+          -64
+        ],
+        "credentials": {
+          "qdrantApi": {
+            "id": "pAgsxavxE7SUpUsV",
+            "name": "QdrantApi account"
+          }
+        }
+      },
+      {
+        "parameters": {},
+        "id": "merge-query-docs",
+        "name": "Merge Query And Docs",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          560,
+          -112
+        ]
       }
     ],
     "connections": {
@@ -165,6 +234,11 @@
               "node": "Qdrant Vector Store",
               "type": "ai_embedding",
               "index": 0
+            },
+            {
+              "node": "Qdrant Docs Load",
+              "type": "ai_embedding",
+              "index": 0
             }
           ]
         ]
@@ -182,14 +256,63 @@
       },
       "Question Answering Chain": {
         "main": [
-          []
+          [
+            {
+              "node": "Format Final Answer",
+              "type": "main",
+              "index": 0
+            }
+          ]
         ]
       },
       "When chat message received": {
         "main": [
           [
             {
-              "node": "Question Answering Chain",
+              "node": "Prepare Query Strategy",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Query Strategy": {
+        "main": [
+          [
+            {
+              "node": "Qdrant Docs Load",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Merge Query And Docs",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Final Answer": {
+        "main": [
+          []
+        ]
+      },
+      "Qdrant Docs Load": {
+        "main": [
+          [
+            {
+              "node": "Merge Query And Docs",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Merge Query And Docs": {
+        "main": [
+          [
+            {
+              "node": "Format Final Answer",
               "type": "main",
               "index": 0
             }
@@ -203,9 +326,9 @@
       "templateCredsSetupCompleted": true
     },
     "pinData": {},
-    "versionId": "9bba150b-b451-457c-b040-836c5e805b24",
-    "activeVersionId": "9bba150b-b451-457c-b040-836c5e805b24",
-    "versionCounter": 35,
+    "versionId": "146b35fe-3d08-40cb-b5d1-ae2baa2691db",
+    "activeVersionId": "146b35fe-3d08-40cb-b5d1-ae2baa2691db",
+    "versionCounter": 123,
     "triggerCount": 1,
     "tags": [],
     "shared": [

@@ -6,8 +6,9 @@
 
 - `n8n` оркестрирует загрузку CSV, подготовку документов и RAG-запрос.
 - `Qdrant` хранит эмбеддинги и метаданные записей.
-- `Ollama` запускает локальную LLM `gemma3:4b` и модель эмбеддингов `bge-m3`.
+- `Ollama` запускает локальную LLM `gemma3:4b` и модель эмбеддингов `bge-m3:latest`.
 - `one-row-per-chunk`: каждая строка CSV превращается в один документ.
+- Финальный ответ формируется детерминированно из `metadata` Qdrant (без генерации фактов LLM).
 - Все компоненты запускаются локально через Docker Compose.
 - Тестовый стенд: `MacBook Air 15" (M4), 24 GB RAM / 512 GB SSD`.
 
@@ -17,7 +18,19 @@
 - `qdrant/qdrant:v1.16.2`
 - `ollama/ollama:latest`
 - `LLM`: `gemma3:4b`
-- `Embeddings`: `bge-m3`
+- `Embeddings`: `bge-m3:latest`
+
+## Статус Проекта (Проверено 2026-04-17)
+
+Проверена целостность, работоспособность и anti-hallucination логика:
+
+- `docker compose -p finreg config` проходит без ошибок.
+- `docker compose -p finreg ps`: контейнеры `rag-n8n`, `rag-qdrant`, `rag-ollama` в статусе `Up`.
+- В Qdrant есть коллекция `kz_companies`; количество точек: `200`.
+- В `data/sample_companies.csv` количество строк (без заголовка): `200`.
+- End-to-end запросы через `./scripts/query_pretty.sh` стабильно возвращают `HTTP 200`.
+- Исправлен критичный кейс: запросы про `активные` компании больше не возвращают записи со статусом `Ликвидировано`.
+- Добавлен hard-guard для unsupported запросов (`выручка`, `крупнейшие`, `топ N` и др.): ответ строго `Недостаточно данных в контексте...`.
 
 ## Архитектура
 
@@ -41,12 +54,26 @@
 
 ### Retrieval
 
-1. `When chat message received` принимает вопрос пользователя из n8n Chat.
-2. `Ollama Embeddings` считает embedding вопроса.
-3. `Qdrant Vector Store` ищет похожие документы в коллекции `kz_companies`.
-4. `Vector Store Retriever` возвращает `topK = 3` документов.
-5. `Question Answering Chain` передаёт найденный контекст в `gemma3:4b`.
-6. Модель отвечает только по контексту.
+1. `When chat message received` принимает вопрос пользователя.
+2. `Prepare Query Strategy` определяет `queryMode` (`count`, `bin_lookup`, `status_lookup`, `registration_date_lookup`, `activity_lookup`, `list`, `generic`), строит metadata-фильтры (`bin/name/city/status/activity`) и `topK`.
+3. `Prepare Query Strategy` сразу маркирует unsupported-вопросы (`выручка`, рейтинги без метрик и т.д.) как `queryMode=unsupported`.
+4. `Qdrant Docs Load` выполняет retrieval с учетом `searchFilterJson`.
+5. `Merge Query And Docs` объединяет стратегию запроса и найденные документы.
+6. `Format Final Answer` детерминированно собирает ответ из `document.metadata` (без генерации фактов моделью), повторно фильтрует записи и добавляет `Подтверждение`.
+7. Для unsupported или пустого результата возвращается строгий safe-fallback: `Недостаточно данных в контексте.`
+
+### Анти-галлюцинации (Критично)
+
+- Источник фактов: только `Qdrant metadata` (`bin`, `name`, `city`, `status`, `activity`, `registration_date`).
+- Если поле не поддерживается источником данных, pipeline не пытается «додумать» ответ.
+- Если фильтры дали пустой набор, возвращается только `Недостаточно данных в контексте.`.
+- После изменений workflow в `n8n:2.2.6` обязательно выполнить publish + restart, иначе webhook продолжит работать на старой опубликованной версии.
+
+Параметры производительности в текущей версии:
+
+- `numCtx: 2048`
+- `numPredict: 96`
+- `temperature: 0`
 
 ## Структура проекта
 
@@ -81,7 +108,7 @@ docker compose -p finreg up -d
 
 ```bash
 docker exec rag-ollama ollama pull gemma3:4b
-docker exec rag-ollama ollama pull bge-m3
+docker exec rag-ollama ollama pull bge-m3:latest
 ```
 
 ### 3. Настроить credentials в n8n
@@ -93,7 +120,7 @@ docker exec rag-ollama ollama pull bge-m3
 
 ## Как выполнить ingest
 
-1. Импортируй workflow [ingest_workflow.json](/Users/ramis/Работа/Проекты/ФИНРЕГ/n8n/ingest_workflow.json).
+1. Импортируй workflow `n8n/ingest_workflow.json`.
 2. Убедись, что файл `data/sample_companies.csv` доступен в контейнере как `/home/node/.n8n-files/sample_companies.csv`.
 3. При необходимости очисти старую коллекцию:
 
@@ -108,9 +135,15 @@ curl -X DELETE http://localhost:6333/collections/kz_companies
 
 Текущая версия query workflow использует `Chat Trigger` в публичном webhook-режиме.
 
-1. Импортируй workflow [query_workflow.json](/Users/ramis/Работа/Проекты/ФИНРЕГ/n8n/query_workflow.json).
+1. Импортируй workflow `n8n/query_workflow.json`.
 2. Открой workflow `Local RAG Query V2`.
-3. Запусти или опубликуй workflow.
+3. После любых изменений workflow опубликуй новую версию и перезапусти n8n:
+
+```bash
+docker compose -p finreg exec -T n8n n8n publish:workflow --id=nQjnLUKAEuy82DSP
+docker compose -p finreg restart n8n
+```
+
 4. Отправь вопрос через встроенную панель чата в n8n или через webhook:
 
 ```bash
@@ -128,6 +161,25 @@ curl -X POST "http://localhost:5678/webhook/62eb0006-34f6-4d09-987e-edf71ca0b255
 - `Найди активные IT-компании в Алматы`
 - `Какой статус у компании НурТех Групп`
 - `Найди строительные компании в Астане`
+- `Сколько ликвидированных компаний в Павлодаре?`
+- `Какая выручка у ТОО "НурТех Групп" за 2025 год?` (ожидаемый safe-fallback)
+
+## Быстрые Проверки После Запуска
+
+```bash
+docker compose -p finreg ps
+curl -sS http://localhost:5678/healthz
+curl -sS http://localhost:6333/collections | jq
+curl -sS http://localhost:11434/api/tags | jq
+```
+
+Проверка, что ingest действительно загружен:
+
+```bash
+curl -sS -X POST http://localhost:6333/collections/kz_companies/points/count \
+  -H "Content-Type: application/json" \
+  -d '{"exact": true}'
+```
 
 ## Что хранится в Qdrant
 
@@ -152,7 +204,7 @@ curl -X POST "http://localhost:5678/webhook/62eb0006-34f6-4d09-987e-edf71ca0b255
 
 ## Демо Для Менеджера
 
-- Отдельная краткая инструкция: [MANAGER_DEMO_INSTRUCTIONS.md](/Users/ramis/Работа/Проекты/ФИНРЕГ/MANAGER_DEMO_INSTRUCTIONS.md)
+- Отдельная краткая инструкция: `MANAGER_DEMO_INSTRUCTIONS.md`
 
 ## Красивый Ответ В Терминале
 
@@ -161,6 +213,8 @@ curl -X POST "http://localhost:5678/webhook/62eb0006-34f6-4d09-987e-edf71ca0b255
 ```bash
 ./scripts/query_pretty.sh "Найди активные IT-компании в Алматы"
 ```
+
+Рекомендация: запускать запросы последовательно (не параллельно), так как локальная LLM на CPU может заметно замедляться при конкурентных вызовах.
 
 По умолчанию он ходит в локальный webhook (`localhost:5678`).
 Для публичного URL можно переопределить переменную:
@@ -174,6 +228,6 @@ WEBHOOK_URL="https://pour-magazine-qualified-gel.trycloudflare.com/webhook/62eb0
 
 Проект демонстрирует полностью локальный RAG pipeline:
 
-`CSV -> one-row-per-chunk -> embeddings -> Qdrant -> semantic retrieval -> answer by local Ollama LLM`
+`CSV -> one-row-per-chunk -> embeddings -> Qdrant -> filtered retrieval -> deterministic answer formatter`
 
 Этого достаточно для локального MVP, демонстрации логики RAG и дальнейшего расширения в полноценный backend при необходимости.
