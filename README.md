@@ -20,7 +20,7 @@
 - `LLM`: `gemma3:4b`
 - `Embeddings`: `bge-m3:latest`
 
-## Статус Проекта (Проверено 2026-04-17)
+## Статус Проекта (Проверено 2026-04-18)
 
 Проверена целостность, работоспособность и anti-hallucination логика:
 
@@ -31,6 +31,8 @@
 - End-to-end запросы через webhook (`curl`) стабильно возвращают `HTTP 200`.
 - Исправлен критичный кейс: запросы про `активные` компании больше не возвращают записи со статусом `Ликвидировано`.
 - Добавлен hard-guard для unsupported запросов (`выручка`, `крупнейшие`, `топ N` и др.): ответ строго `Недостаточно данных в контексте...`.
+- Добавлена явная дизамбигуация: при нескольких совпадениях по имени система запрашивает уточнение (`город` или `юрформа`), вместо «угадывания».
+- Для exact/filter/count сценариев используется metadata-only путь без обязательного vector retrieval в hot path.
 
 ## Архитектура
 
@@ -55,12 +57,14 @@
 ### Retrieval
 
 1. `When chat message received` принимает вопрос пользователя.
-2. `Prepare Query Strategy` определяет `queryMode` (`count`, `bin_lookup`, `status_lookup`, `registration_date_lookup`, `activity_lookup`, `list`, `generic`), строит metadata-фильтры (`bin/name/city/status/activity`) и `topK`.
-3. `Prepare Query Strategy` сразу маркирует unsupported-вопросы (`выручка`, рейтинги без метрик и т.д.) как `queryMode=unsupported`.
-4. `Qdrant Docs Load` выполняет retrieval с учетом `searchFilterJson`.
-5. `Merge Query And Docs` объединяет стратегию запроса и найденные документы.
-6. `Format Final Answer` детерминированно собирает ответ из `document.metadata` (без генерации фактов моделью), повторно фильтрует записи и добавляет `Подтверждение`.
-7. Для unsupported или пустого результата возвращается строгий safe-fallback: `Недостаточно данных в контексте.`
+2. `Prepare Query Strategy` определяет `queryMode` (`count`, `bin_lookup`, `status_lookup`, `registration_date_lookup`, `activity_lookup`, `list`, `generic`, `unsupported`), строит metadata-фильтры (`bin/name/city/status/activity`), выделяет `companyHint` и `legalForm`, выбирает `retrievalMode` (`none/metadata/semantic`).
+3. `Retrieve Candidates`:
+   - `none`: short-circuit для `unsupported`/`cacheHit`;
+   - `metadata`: Qdrant `count + scroll` по фильтрам;
+   - `semantic`: Ollama embeddings + Qdrant vector search (fallback для размытых запросов).
+4. `Format Final Answer` детерминированно собирает ответ из `document.metadata` (без генерации фактов моделью), добавляет `Подтверждение`, пишет/читает cache.
+5. Если найдено несколько кандидатов для lookup-запроса, включается явная дизамбигуация: запрос уточнения (`город`/`юрформа`) + список вариантов (название, город, БИН).
+6. Для unsupported или пустого результата возвращается строгий safe-fallback: `Недостаточно данных в контексте.`
 
 Важно: нормализация ответа и fallback реализованы только внутри workflow (узел `Format Final Answer`), клиентские скрипты пост-обработки не используются.
 
@@ -69,7 +73,8 @@
 - Источник фактов: только `Qdrant metadata` (`bin`, `name`, `city`, `status`, `activity`, `registration_date`).
 - Если поле не поддерживается источником данных, pipeline не пытается «додумать» ответ.
 - Если фильтры дали пустой набор, возвращается только `Недостаточно данных в контексте.`.
-- После изменений workflow в `n8n:2.2.6` обязательно выполнить publish + restart, иначе webhook продолжит работать на старой опубликованной версии.
+- Если найдено несколько совпадений по имени, pipeline не выбирает запись произвольно, а просит уточнить `город` или `юрформу`.
+- После изменений workflow в `n8n:2.2.6` обязательно активируй новую `versionId` (через UI или `/rest/workflows/:id/activate`), иначе webhook может остаться на старой версии.
 
 Параметры производительности в текущей версии:
 
@@ -139,11 +144,12 @@ curl -X DELETE http://localhost:6333/collections/kz_companies
 
 1. Импортируй workflow `n8n/query_workflow.json`.
 2. Открой workflow `Local RAG Query V2`.
-3. После любых изменений workflow опубликуй новую версию и перезапусти n8n:
+3. После любых изменений workflow активируй новую версию:
 
 ```bash
-docker compose -p finreg exec -T n8n n8n publish:workflow --id=nQjnLUKAEuy82DSP
-docker compose -p finreg restart n8n
+curl -sS -X POST "http://localhost:5678/rest/workflows/nQjnLUKAEuy82DSP/activate" \
+  -H "Content-Type: application/json" \
+  -d '{"versionId":"<NEW_VERSION_ID>"}'
 ```
 
 4. Отправь вопрос через встроенную панель чата в n8n или через webhook:
@@ -162,6 +168,8 @@ curl -X POST "http://localhost:5678/webhook/62eb0006-34f6-4d09-987e-edf71ca0b255
 
 - `Найди активные IT-компании в Алматы`
 - `Какой статус у компании НурТех Групп`
+- `Какой статус у нуртех групп?` (ожидаемый clarify при нескольких совпадениях)
+- `Какой статус у АО нуртех групп?` (ожидаемый однозначный ответ)
 - `Найди строительные компании в Астане`
 - `Сколько ликвидированных компаний в Павлодаре?`
 - `Какая выручка у ТОО "НурТех Групп" за 2025 год?` (ожидаемый safe-fallback)
@@ -207,6 +215,7 @@ curl -sS -X POST http://localhost:6333/collections/kz_companies/points/count \
 ## Демо Для Менеджера
 
 - Отдельная краткая инструкция: `MANAGER_DEMO_INSTRUCTIONS.md`
+- Отчет с 5 репрезентативными прогонами: `отчет.md`
 
 ## Проверка Из Терминала (Только Workflow)
 
