@@ -57,14 +57,19 @@
 ### Retrieval
 
 1. `When chat message received` принимает вопрос пользователя.
-2. `Prepare Query Strategy` определяет `queryMode` (`count`, `bin_lookup`, `status_lookup`, `registration_date_lookup`, `activity_lookup`, `list`, `generic`, `unsupported`), строит metadata-фильтры (`bin/name/city/status/activity`), выделяет `companyHint` и `legalForm`, выбирает `retrievalMode` (`none/metadata/semantic`).
-3. `Retrieve Candidates`:
+2. `Prepare Query Strategy` определяет `queryMode` (`count`, `bin_lookup`, `status_lookup`, `registration_date_lookup`, `activity_lookup`, `list`, `generic`, `unsupported`), строит metadata-фильтры (`bin/name/city/status/activity`), выделяет `companyHint` и `legalForm`, выбирает `retrievalMode` (`none/metadata/semantic`) и `answerBranch` (`fast`/`rag`).
+3. `Route Answer Branch` переключает маршрут:
+   - `fast` -> `Retrieve Candidates` -> `Format Final Answer`
+   - `rag` -> `Question Answering Chain` (через `Vector Store Retriever` + `Qdrant Vector Store` + `Ollama Embeddings`) -> `Format Final Answer`
+4. `Retrieve Candidates` (для `fast`):
    - `none`: short-circuit для `unsupported`/`cacheHit`;
    - `metadata`: Qdrant `count + scroll` по фильтрам;
    - `semantic`: Ollama embeddings + Qdrant vector search (fallback для размытых запросов).
-4. `Format Final Answer` детерминированно собирает ответ из `document.metadata` (без генерации фактов моделью), добавляет `Подтверждение`, пишет/читает cache.
-5. Если найдено несколько кандидатов для lookup-запроса, включается явная дизамбигуация: запрос уточнения (`город`/`юрформа`) + список вариантов (название, город, БИН).
-6. Для unsupported или пустого результата возвращается строгий safe-fallback: `Недостаточно данных в контексте.`
+5. `Format Final Answer`:
+   - в `fast` режиме детерминированно собирает ответ из `document.metadata`, добавляет `Подтверждение`, пишет/читает cache;
+   - в `rag` режиме возвращает итог `Question Answering Chain` (с пост-обработкой JSON-ответа цепочки).
+6. Если найдено несколько кандидатов для lookup-запроса (fast), включается явная дизамбигуация: запрос уточнения (`город`/`юрформа`) + список вариантов (название, город, БИН).
+7. Для unsupported или пустого результата возвращается строгий safe-fallback: `Недостаточно данных в контексте.`
 
 Важно: нормализация ответа и fallback реализованы только внутри workflow (узел `Format Final Answer`), клиентские скрипты пост-обработки не используются.
 
@@ -173,6 +178,18 @@ curl -X POST "http://localhost:5678/webhook/62eb0006-34f6-4d09-987e-edf71ca0b255
 - `Найди строительные компании в Астане`
 - `Сколько ликвидированных компаний в Павлодаре?`
 - `Какая выручка у ТОО "НурТех Групп" за 2025 год?` (ожидаемый safe-fallback)
+
+Переключение ветки формирования ответа (feature):
+
+- По умолчанию используется `FAST` ветка.
+- Явно `FAST`: добавить префикс `/fast` или `/mode fast`.
+- Явно `RAG`: добавить префикс `/rag` или `/mode rag`.
+- Для наглядности в начале ответа выводится метка режима: `[MODE: FAST]` или `[MODE: RAG]`.
+
+Примеры:
+
+- `/fast Какой статус у компании ТОО "НурТех Групп"?`
+- `/rag Какой статус у компании ТОО "НурТех Групп"?`
 
 ## Быстрые Проверки После Запуска
 

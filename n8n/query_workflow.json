@@ -1,6 +1,6 @@
 [
   {
-    "updatedAt": "2026-04-17T10:37:17.000Z",
+    "updatedAt": "2026-04-19T07:55:28.168Z",
     "createdAt": "2026-04-14T11:48:33.128Z",
     "id": "nQjnLUKAEuy82DSP",
     "name": "Local RAG Query V2",
@@ -38,8 +38,8 @@
         "type": "@n8n/n8n-nodes-langchain.chainRetrievalQa",
         "typeVersion": 1,
         "position": [
-          224,
-          96
+          144,
+          64
         ]
       },
       {
@@ -60,8 +60,8 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
         "typeVersion": 1,
         "position": [
-          80,
-          288
+          112,
+          256
         ],
         "credentials": {
           "ollamaApi": {
@@ -89,8 +89,8 @@
         "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
         "typeVersion": 1,
         "position": [
-          112,
-          480
+          224,
+          336
         ],
         "credentials": {
           "qdrantApi": {
@@ -108,8 +108,8 @@
         "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
         "typeVersion": 1,
         "position": [
-          -112,
-          288
+          -80,
+          368
         ],
         "credentials": {
           "ollamaApi": {
@@ -125,15 +125,15 @@
         "type": "@n8n/n8n-nodes-langchain.retrieverVectorStore",
         "typeVersion": 1,
         "position": [
-          256,
-          304
+          224,
+          208
         ],
         "id": "28958f3c-d83e-4f14-9c9e-f5cedb0ce86f",
         "name": "Vector Store Retriever"
       },
       {
         "parameters": {
-          "jsCode": "const cityAliases = {\n  'алматы': 'Алматы',\n  'астана': 'Астана',\n  'нур-султан': 'Астана',\n  'нурсултан': 'Астана',\n  'шымкент': 'Шымкент',\n  'караганда': 'Караганда',\n  'актау': 'Актау',\n  'атырау': 'Атырау',\n  'павлодар': 'Павлодар',\n  'костанай': 'Костанай',\n  'усть-каменогорск': 'Усть-Каменогорск',\n};\n\nconst knownActivities = [\n  'Строительство зданий и сооружений',\n  'Консалтинговые услуги',\n  'Образовательные услуги',\n  'Телекоммуникации',\n  'Розничная торговля',\n  'Техническое обслуживание оборудования',\n  'Производство продуктов питания',\n  'Сельское хозяйство',\n  'Добыча полезных ископаемых',\n  'Транспорт и логистика',\n  'Медицинские услуги',\n  'Архитектура и проектирование',\n  'Оптовая торговля',\n  'Рекламные услуги',\n  'Разработка программного обеспечения',\n  'Юридические услуги',\n  'Производство мебели',\n  'Финансовые услуги',\n  'Бухгалтерский учёт и аудит',\n  'Ресторанный бизнес',\n];\n\nfunction compactText(s) {\n  return String(s || '').replace(/\\s+/g, ' ').trim();\n}\n\nfunction normalizeForMatch(s) {\n  return compactText(s)\n    .toLowerCase()\n    .replace(/[\"«»']/g, '')\n    .replace(/\\b(тоо|ао|ип)\\b/gi, '')\n    .replace(/[^\\p{L}\\p{N}\\s-]+/gu, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction detectCity(lower) {\n  const cityRules = [\n    { canon: 'Астана', regex: /(нур-?султан|астан)/i },\n    { canon: 'Алматы', regex: /(алмат)/i },\n    { canon: 'Шымкент', regex: /(шымкент)/i },\n    { canon: 'Караганда', regex: /(караганд)/i },\n    { canon: 'Актау', regex: /(актау)/i },\n    { canon: 'Атырау', regex: /(атырау)/i },\n    { canon: 'Павлодар', regex: /(павлодар)/i },\n    { canon: 'Костанай', regex: /(костанай)/i },\n    { canon: 'Усть-Каменогорск', regex: /(усть-?каменогорск)/i },\n  ];\n\n  for (const rule of cityRules) {\n    if (rule.regex.test(lower)) return rule.canon;\n  }\n\n  for (const [alias, canon] of Object.entries(cityAliases)) {\n    if (lower.includes(alias)) return canon;\n  }\n\n  return null;\n}\n\nfunction detectActivity(lower) {\n  for (const v of knownActivities) {\n    if (lower.includes(v.toLowerCase())) return v;\n  }\n\n  if (/(разработк|программ|it|айти|software|технолог)/i.test(lower)) return 'Разработка программного обеспечения';\n  if (/(строит|construction|зданий|сооружений)/i.test(lower)) return 'Строительство зданий и сооружений';\n  if (/(технич|обслуживан.*оборуд)/i.test(lower)) return 'Техническое обслуживание оборудования';\n  if (/(архитект|проектирован)/i.test(lower)) return 'Архитектура и проектирование';\n  if (/(транспорт|логист|доставк|склад)/i.test(lower)) return 'Транспорт и логистика';\n  if (/(оптов)/i.test(lower)) return 'Оптовая торговля';\n  if (/(рознич)/i.test(lower)) return 'Розничная торговля';\n  if (/(финанс|банк|инвест|страх)/i.test(lower)) return 'Финансовые услуги';\n\n  return null;\n}\n\nfunction normalizeLegalFormPrefix(s) {\n  return compactText(s)\n    .replace(/^тоо\\b/i, 'ТОО')\n    .replace(/^ао\\b/i, 'АО')\n    .replace(/^ип\\b/i, 'ИП');\n}\n\nfunction detectCompanyName(chatInput) {\n  const quotedLegal = chatInput.match(/(?:ТОО|АО|ИП)\\s*[\"«][^\"»]+[\"»]/i);\n  if (quotedLegal && quotedLegal[0]) {\n    const exact = normalizeLegalFormPrefix(quotedLegal[0].replace(/[«»]/g, '\"'));\n    const hint = normalizeForMatch(exact);\n    return { exact, hint, confidence: 'high' };\n  }\n\n  const quotedAny = chatInput.match(/[\"«]([^\"»]{2,})[\"»]/);\n  if (quotedAny && quotedAny[1]) {\n    const exact = compactText(quotedAny[1]);\n    const hint = normalizeForMatch(exact);\n    return { exact: null, hint, confidence: 'medium' };\n  }\n\n  const phrase = chatInput.match(/(?:компани[ияи]\\s+|у\\s+компани[ияи]\\s+)([\\p{L}\\p{N}\\s-]{3,})/iu);\n  if (phrase && phrase[1]) {\n    const raw = compactText(phrase[1]);\n    const hint = normalizeForMatch(raw);\n    if (hint) return { exact: null, hint, confidence: 'low' };\n  }\n\n  return { exact: null, hint: null, confidence: 'none' };\n}\n\nfunction needsSemanticFallback(lower, hasAnyFilter, queryMode) {\n  if (queryMode === 'generic') return true;\n  if (!hasAnyFilter && queryMode === 'list') return true;\n  if (/(похож|аналог|схож|примерно|технологическ|что[- ]?то|какие\\s+есть)/i.test(lower)) return true;\n  return false;\n}\n\nreturn $input.all().map((item) => {\n  const original = item.json || {};\n  const chatInput = compactText(original.chatInput ?? '');\n  const lower = chatInput.toLowerCase();\n\n  const city = detectCity(lower);\n  const activity = detectActivity(lower);\n  const company = detectCompanyName(chatInput);\n\n  const binMatch = chatInput.match(/\\b\\d{12}\\b/);\n  const bin = binMatch ? binMatch[0] : null;\n\n  let status = null;\n  if (/(неактив|ликвид|закрыт|приостанов)/i.test(lower)) status = 'Ликвидировано';\n  else if (lower.includes('активн')) status = 'Активно';\n\n  const isCount = /(сколько|количество|число)/i.test(lower);\n  const isStatusLookup = /(какой\\s+статус|статус\\s+у\\s+компани)/i.test(lower);\n  const isDateLookup = /(дата\\s+регистрац|когда\\s+зарегистр)/i.test(lower);\n  const isActivityLookup = /(вид\\s+деятельност)/i.test(lower);\n  const isList = /(найди|покажи|перечисли|какие|список|все|подбери)/i.test(lower);\n\n  const asksUnsupportedField = /(выручк|доход|оборот|прибыл|маржин|ebitda|дивиденд|капитализац|активы|баланс|телефон|e-?mail|почт|сайт|адрес|руководител|учредител|директор|владелец|штат|сотрудник)/i.test(lower);\n  const asksRankingWithoutMetric = /(крупнейш|топ\\s*\\d+|лучш(ий|ая|ие)|сам(ый|ая|ое|ые))/i.test(lower);\n\n  let unsupportedReason = null;\n  if (asksUnsupportedField) unsupportedReason = 'Запрошены поля, которых нет в источнике данных.';\n  else if (asksRankingWithoutMetric) unsupportedReason = 'Запрошен рейтинг/сравнение, но в источнике нет метрик ранжирования.';\n\n  let queryMode = 'generic';\n  if (unsupportedReason) queryMode = 'unsupported';\n  else if (isCount) queryMode = 'count';\n  else if (bin) queryMode = 'bin_lookup';\n  else if (isStatusLookup) queryMode = 'status_lookup';\n  else if (isDateLookup) queryMode = 'registration_date_lookup';\n  else if (isActivityLookup) queryMode = 'activity_lookup';\n  else if (isList) queryMode = 'list';\n\n  const must = [];\n  if (bin) must.push({ key: 'metadata.bin', match: { value: bin } });\n  if (company.exact) must.push({ key: 'metadata.name', match: { value: company.exact } });\n  if (city) must.push({ key: 'metadata.city', match: { value: city } });\n  if (status) must.push({ key: 'metadata.status', match: { value: status } });\n  if (activity) must.push({ key: 'metadata.activity', match: { value: activity } });\n\n  const qdrantFilter = must.length ? { must } : {};\n  const hasAnyFilter = must.length > 0;\n\n  let retrievalMode = 'semantic';\n  if (queryMode === 'unsupported') retrievalMode = 'none';\n  else if (!needsSemanticFallback(lower, hasAnyFilter, queryMode)) retrievalMode = 'metadata';\n\n  const semanticTopK = queryMode === 'bin_lookup' ? 3 : 10;\n  const metadataTopK = queryMode === 'count' ? 3000 : (queryMode === 'list' ? 100 : 25);\n\n  const normalizedQuery = normalizeForMatch(chatInput);\n  const cacheKey = normalizedQuery || lower;\n\n  let cacheHit = false;\n  let cachedResponseText = null;\n  try {\n    if (typeof $getWorkflowStaticData === 'function') {\n      const s = $getWorkflowStaticData('global');\n      s.answerCache = s.answerCache || {};\n      if (s.answerCache[cacheKey]) {\n        cacheHit = true;\n        cachedResponseText = s.answerCache[cacheKey];\n      }\n    }\n  } catch (e) {\n    // Optional cache: no-op if static data API is unavailable in current runtime.\n  }\n\n  const filterParts = [];\n  if (bin) filterParts.push(`бин=${bin}`);\n  if (company.exact) filterParts.push(`название=${company.exact}`);\n  if (city) filterParts.push(`город=${city}`);\n  if (status) filterParts.push(`статус=${status}`);\n  if (activity) filterParts.push(`вид_деятельности=${activity}`);\n\n  const retrievalHint = [\n    `query_mode=${queryMode}`,\n    `retrieval_mode=${retrievalMode}`,\n    unsupportedReason ? `unsupported_reason=${unsupportedReason}` : '',\n    'Используй только факты из контекста.',\n    'Если подходящих записей нет, верни недостаточно данных.',\n  ].filter(Boolean).join('\\n');\n\n  const retrievalQuery = [\n    retrievalHint,\n    chatInput,\n    filterParts.length ? `Фильтры: ${filterParts.join(', ')}` : '',\n  ].filter(Boolean).join('\\n');\n\n  return {\n    json: {\n      ...original,\n      chatInput,\n      queryMode,\n      retrievalMode,\n      unsupportedReason,\n      semanticTopK,\n      metadataTopK,\n      cacheKey,\n      cacheHit,\n      cachedResponseText,\n      parsedFilters: {\n        bin,\n        companyName: company.exact,\n        companyHint: company.hint,\n        companyConfidence: company.confidence,\n        city,\n        status,\n        activity,\n      },\n      qdrantFilter,\n      retrievalQuery,\n    },\n  };\n});\n"
+          "jsCode": "const cityAliases = {\n  'алматы': 'Алматы',\n  'астана': 'Астана',\n  'нур-султан': 'Астана',\n  'нурсултан': 'Астана',\n  'шымкент': 'Шымкент',\n  'караганда': 'Караганда',\n  'актау': 'Актау',\n  'атырау': 'Атырау',\n  'павлодар': 'Павлодар',\n  'костанай': 'Костанай',\n  'усть-каменогорск': 'Усть-Каменогорск',\n};\n\nconst knownActivities = [\n  'Строительство зданий и сооружений',\n  'Консалтинговые услуги',\n  'Образовательные услуги',\n  'Телекоммуникации',\n  'Розничная торговля',\n  'Техническое обслуживание оборудования',\n  'Производство продуктов питания',\n  'Сельское хозяйство',\n  'Добыча полезных ископаемых',\n  'Транспорт и логистика',\n  'Медицинские услуги',\n  'Архитектура и проектирование',\n  'Оптовая торговля',\n  'Рекламные услуги',\n  'Разработка программного обеспечения',\n  'Юридические услуги',\n  'Производство мебели',\n  'Финансовые услуги',\n  'Бухгалтерский учёт и аудит',\n  'Ресторанный бизнес',\n];\n\nfunction compactText(s) {\n  return String(s || '').replace(/\\s+/g, ' ').trim();\n}\n\nfunction normalizeForMatch(s) {\n  return compactText(s)\n    .toLowerCase()\n    .replace(/[\"«»']/g, '')\n    .replace(/(^|[\\s\\-])(тоо|ао|ип)(?=$|[\\s\\-])/giu, ' ')\n    .replace(/[^\\p{L}\\p{N}\\s-]+/gu, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction detectCity(lower) {\n  const cityRules = [\n    { canon: 'Астана', regex: /(нур-?султан|астан)/i },\n    { canon: 'Алматы', regex: /(алмат)/i },\n    { canon: 'Шымкент', regex: /(шымкент)/i },\n    { canon: 'Караганда', regex: /(караганд)/i },\n    { canon: 'Актау', regex: /(актау)/i },\n    { canon: 'Атырау', regex: /(атырау)/i },\n    { canon: 'Павлодар', regex: /(павлодар)/i },\n    { canon: 'Костанай', regex: /(костанай)/i },\n    { canon: 'Усть-Каменогорск', regex: /(усть-?каменогорск)/i },\n  ];\n\n  for (const rule of cityRules) {\n    if (rule.regex.test(lower)) return rule.canon;\n  }\n\n  for (const [alias, canon] of Object.entries(cityAliases)) {\n    if (lower.includes(alias)) return canon;\n  }\n\n  return null;\n}\n\nfunction detectActivity(lower) {\n  for (const v of knownActivities) {\n    if (lower.includes(v.toLowerCase())) return v;\n  }\n\n  if (/(разработк|программ|it|айти|software|технолог)/i.test(lower)) return 'Разработка программного обеспечения';\n  if (/(строит|construction|зданий|сооружений)/i.test(lower)) return 'Строительство зданий и сооружений';\n  if (/(технич|обслуживан.*оборуд)/i.test(lower)) return 'Техническое обслуживание оборудования';\n  if (/(архитект|проектирован)/i.test(lower)) return 'Архитектура и проектирование';\n  if (/(транспорт|логист|доставк|склад)/i.test(lower)) return 'Транспорт и логистика';\n  if (/(оптов)/i.test(lower)) return 'Оптовая торговля';\n  if (/(рознич)/i.test(lower)) return 'Розничная торговля';\n  if (/(финанс|банк|инвест|страх)/i.test(lower)) return 'Финансовые услуги';\n\n  return null;\n}\n\nfunction normalizeLegalFormPrefix(s) {\n  return compactText(s)\n    .replace(/^тоо\\b/i, 'ТОО')\n    .replace(/^ао\\b/i, 'АО')\n    .replace(/^ип\\b/i, 'ИП');\n}\n\nfunction cleanupFreeformCompanyHint(raw, city) {\n  let hint = normalizeForMatch(raw);\n  if (!hint) return '';\n\n  const cityNorm = normalizeForMatch(city || '');\n  if (cityNorm) {\n    const cityTokens = new Set(cityNorm.split(' ').filter(Boolean));\n    hint = hint\n      .split(' ')\n      .filter((t) => t && !cityTokens.has(t))\n      .join(' ');\n  }\n\n  hint = hint\n    .replace(/\\b(какой|какая|какие|какую|где|когда|сколько|количество|число|статус|компания|компании|компанию|дата|регистрации|вид|деятельности|чем|занимается|занимаются|найди|покажи|перечисли|список|все|подбери|по|в|у|на|из)\\b/giu, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  return hint;\n}\n\nfunction detectLegalForm(chatInput) {\n  const m = chatInput.match(/(?:^|[\\s\"«»'().,!?;:])(тоо|ао|ип)(?=$|[\\s\"«»'().,!?;:])/iu);\n  if (!m || !m[1]) return null;\n  const v = m[1].toUpperCase();\n  if (v === 'ТОО' || v === 'АО' || v === 'ИП') return v;\n  return null;\n}\n\nfunction detectCompanyName(chatInput, lower, city) {\n  const quotedLegal = chatInput.match(/(?:ТОО|АО|ИП)\\s*[\"«][^\"»]+[\"»]/i);\n  if (quotedLegal && quotedLegal[0]) {\n    const exact = normalizeLegalFormPrefix(quotedLegal[0].replace(/[«»]/g, '\"'));\n    const hint = normalizeForMatch(exact);\n    return { exact, hint, confidence: 'high' };\n  }\n\n  const quotedAny = chatInput.match(/[\"«]([^\"»]{2,})[\"»]/);\n  if (quotedAny && quotedAny[1]) {\n    const exact = compactText(quotedAny[1]);\n    const hint = normalizeForMatch(exact);\n    return { exact: null, hint, confidence: 'medium' };\n  }\n\n  const phrase = chatInput.match(/(?:компани[ияи]\\s+|у\\s+компани[ияи]\\s+)([\\p{L}\\p{N}\\s-]{3,})/iu);\n  if (phrase && phrase[1]) {\n    const raw = compactText(phrase[1]).replace(/[?!.,;:]+$/g, '');\n    const hint = normalizeForMatch(raw);\n    if (hint) return { exact: null, hint, confidence: 'low' };\n  }\n\n  const statusSubject = chatInput.match(/(?:какой\\s+статус\\s+у|статус\\s+у)\\s+([\\p{L}\\p{N}\\s\"«».-]{3,})/iu);\n  if (statusSubject && statusSubject[1]) {\n    const raw = compactText(statusSubject[1])\n      .replace(/[?!.,;:]+$/g, '')\n      .replace(/\\s+(в|из|по)\\s+[^\\s]+.*$/iu, '')\n      .trim();\n    const hint = normalizeForMatch(raw);\n    if (hint && !/^(компани|компания|компанию)$/.test(hint)) {\n      return { exact: null, hint, confidence: 'medium' };\n    }\n  }\n\n  const freeformHint = cleanupFreeformCompanyHint(chatInput, city);\n  if (freeformHint && freeformHint.split(' ').length <= 4) {\n    return { exact: null, hint: freeformHint, confidence: 'low' };\n  }\n\n  return { exact: null, hint: null, confidence: 'none' };\n}\n\nfunction needsSemanticFallback(lower, hasAnyFilter, queryMode) {\n  if (queryMode === 'generic') return true;\n  if (!hasAnyFilter && queryMode === 'list') return true;\n  if (/(похож|аналог|схож|примерно|технологическ|что[- ]?то|какие\\s+есть)/i.test(lower)) return true;\n  return false;\n}\n\nfunction extractAnswerBranch(rawInput) {\n  let text = compactText(rawInput);\n  let branch = 'fast';\n\n  const slashMode = text.match(/^\\/mode\\s+(rag|fast)\\b/i);\n  if (slashMode) {\n    branch = slashMode[1].toLowerCase();\n    text = compactText(text.replace(/^\\/mode\\s+(rag|fast)\\b/i, ''));\n    return { branch, chatInput: text };\n  }\n\n  const slashShort = text.match(/^\\/(rag|fast)\\b/i);\n  if (slashShort) {\n    branch = slashShort[1].toLowerCase();\n    text = compactText(text.replace(/^\\/(rag|fast)\\b/i, ''));\n    return { branch, chatInput: text };\n  }\n\n  const hashTag = text.match(/#(rag|fast)\\b/i);\n  if (hashTag) {\n    branch = hashTag[1].toLowerCase();\n    text = compactText(text.replace(/#(rag|fast)\\b/i, ''));\n  }\n\n  return { branch, chatInput: text };\n}\n\nconst getGlobalStaticData = () => {\n  if (typeof $getWorkflowStaticData === 'function') return $getWorkflowStaticData('global');\n  if (typeof this !== 'undefined' && this && typeof this.getWorkflowStaticData === 'function') {\n    return this.getWorkflowStaticData('global');\n  }\n  return null;\n};\n\nreturn $input.all().map((item) => {\n  const original = item.json || {};\n  const branchDecision = extractAnswerBranch(original.chatInput ?? '');\n  const answerBranch = branchDecision.branch === 'rag' ? 'rag' : 'fast';\n  const chatInput = compactText(branchDecision.chatInput || original.chatInput || '');\n  const lower = chatInput.toLowerCase();\n\n  const city = detectCity(lower);\n  const activity = detectActivity(lower);\n  const company = detectCompanyName(chatInput, lower, city);\n  const legalForm = detectLegalForm(chatInput);\n\n  const binMatch = chatInput.match(/\\b\\d{12}\\b/);\n  const bin = binMatch ? binMatch[0] : null;\n\n  let status = null;\n  if (/(неактив|ликвид|закрыт|приостанов)/i.test(lower)) status = 'Ликвидировано';\n  else if (lower.includes('активн')) status = 'Активно';\n\n  const isCount = /(сколько|количество|число)/i.test(lower);\n  const isStatusLookup = /(какой\\s+статус|статус\\s+у\\s+компани)/i.test(lower);\n  const isDateLookup = /(дата\\s+регистрац|когда\\s+зарегистр)/i.test(lower);\n  const isActivityLookup = /(вид\\s+деятельност|чем\\s+занима(?:ется|ют|ешься)|какая\\s+деятельност|какой\\s+вид\\s+деятельност|что\\s+дела(?:ет|ют)\\s+компани)/i.test(lower);\n  const isList = /(найди|покажи|перечисли|какие|список|все|подбери)/i.test(lower);\n\n  const asksUnsupportedField = /(выручк|доход|оборот|прибыл|маржин|ebitda|дивиденд|капитализац|активы|баланс|телефон|e-?mail|почт|сайт|адрес|руководител|учредител|директор|владелец|штат|сотрудник)/i.test(lower);\n  const asksRankingWithoutMetric = /(крупнейш|топ\\s*\\d+|лучш(ий|ая|ие)|сам(ый|ая|ое|ые))/i.test(lower);\n\n  let unsupportedReason = null;\n  if (asksUnsupportedField) unsupportedReason = 'Запрошены поля, которых нет в источнике данных.';\n  else if (asksRankingWithoutMetric) unsupportedReason = 'Запрошен рейтинг/сравнение, но в источнике нет метрик ранжирования.';\n\n  let queryMode = 'generic';\n  if (unsupportedReason) queryMode = 'unsupported';\n  else if (isCount) queryMode = 'count';\n  else if (bin) queryMode = 'bin_lookup';\n  else if (isStatusLookup) queryMode = 'status_lookup';\n  else if (isDateLookup) queryMode = 'registration_date_lookup';\n  else if (isActivityLookup) queryMode = 'activity_lookup';\n  else if (isList) queryMode = 'list';\n\n  const shortEntityLookup =\n    queryMode === 'generic'\n    && !unsupportedReason\n    && !bin\n    && Boolean(company.hint)\n    && !/(сколько|количество|число|найди|покажи|перечисли|какие|список|все|подбери|похож|аналог|схож|топ|крупнейш)/i.test(lower)\n    && (Boolean(city) || Boolean(legalForm) || company.confidence === 'high' || company.hint.split(' ').length <= 3);\n\n  if (shortEntityLookup) queryMode = 'status_lookup';\n\n  const companyHintModes = new Set(['status_lookup', 'registration_date_lookup', 'activity_lookup', 'bin_lookup']);\n  const companyHint = companyHintModes.has(queryMode) ? company.hint : null;\n\n  const must = [];\n  if (bin) must.push({ key: 'metadata.bin', match: { value: bin } });\n  if (company.exact) must.push({ key: 'metadata.name', match: { value: company.exact } });\n  if (city) must.push({ key: 'metadata.city', match: { value: city } });\n  if (status) must.push({ key: 'metadata.status', match: { value: status } });\n  if (activity) must.push({ key: 'metadata.activity', match: { value: activity } });\n\n  const qdrantFilter = must.length ? { must } : {};\n  const hasAnyFilter = must.length > 0;\n\n  let retrievalMode = 'semantic';\n  if (queryMode === 'unsupported') retrievalMode = 'none';\n  else if (answerBranch === 'rag') retrievalMode = 'semantic';\n  else if (!needsSemanticFallback(lower, hasAnyFilter, queryMode)) retrievalMode = 'metadata';\n\n  const semanticTopK = queryMode === 'bin_lookup' ? 3 : 10;\n  let metadataTopK = queryMode === 'count' ? 3000 : (queryMode === 'list' ? 100 : 25);\n  if (companyHint && !company.exact) metadataTopK = Math.max(metadataTopK, 3000);\n\n  const normalizedQuery = normalizeForMatch(chatInput);\n  const CACHE_SCHEMA_VERSION = 'v8';\n  const cacheKey = `${CACHE_SCHEMA_VERSION}:${answerBranch}:${normalizedQuery || lower}`;\n\n  let cacheHit = false;\n  let cachedResponseText = null;\n  try {\n    const s = getGlobalStaticData();\n    if (s) {\n      s.answerCache = s.answerCache || {};\n      if (s.answerCache[cacheKey]) {\n        cacheHit = true;\n        cachedResponseText = s.answerCache[cacheKey];\n      }\n    }\n  } catch (e) {\n    // Optional cache: no-op if static data API is unavailable in current runtime.\n  }\n\n  const filterParts = [];\n  if (bin) filterParts.push(`бин=${bin}`);\n  if (company.exact) filterParts.push(`название=${company.exact}`);\n  if (legalForm) filterParts.push(`юрформа=${legalForm}`);\n  if (city) filterParts.push(`город=${city}`);\n  if (status) filterParts.push(`статус=${status}`);\n  if (activity) filterParts.push(`вид_деятельности=${activity}`);\n\n  const retrievalHint = [\n    `query_mode=${queryMode}`,\n    `retrieval_mode=${retrievalMode}`,\n    unsupportedReason ? `unsupported_reason=${unsupportedReason}` : '',\n    'Используй только факты из контекста.',\n    'Если подходящих записей нет, верни недостаточно данных.',\n  ].filter(Boolean).join('\\n');\n\n  const retrievalQuery = [\n    retrievalHint,\n    chatInput,\n    filterParts.length ? `Фильтры: ${filterParts.join(', ')}` : '',\n  ].filter(Boolean).join('\\n');\n\n  return {\n    json: {\n      ...original,\n      chatInput,\n      answerBranch,\n      queryMode,\n      retrievalMode,\n      unsupportedReason,\n      semanticTopK,\n      metadataTopK,\n      cacheKey,\n      cacheHit,\n      cachedResponseText,\n      parsedFilters: {\n        bin,\n        companyName: company.exact,\n        companyHint,\n        companyConfidence: company.confidence,\n        legalForm,\n        city,\n        status,\n        activity,\n      },\n      qdrantFilter,\n      retrievalQuery,\n    },\n  };\n});"
         },
         "id": "prepare-query-strategy",
         "name": "Prepare Query Strategy",
@@ -146,15 +146,15 @@
       },
       {
         "parameters": {
-          "jsCode": "const items = $input.all();\n\nfunction compact(s) {\n  return String(s || '').replace(/\\s+/g, ' ').trim();\n}\n\nfunction normalizeForMatch(s) {\n  return compact(s)\n    .toLowerCase()\n    .replace(/[\"«»']/g, '')\n    .replace(/\\b(тоо|ао|ип)\\b/gi, '')\n    .replace(/[^\\p{L}\\p{N}\\s-]+/gu, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction pickQueryItem(allItems) {\n  return allItems.find((i) => {\n    const j = i?.json || {};\n    return Boolean(j.queryMode || j.qdrantFilter || j.parsedFilters || j.retrievalMode || j.cacheKey);\n  }) || { json: {} };\n}\n\nfunction toRecordFromDocument(doc) {\n  const m = doc?.metadata || {};\n  const rec = {\n    bin: compact(m.bin),\n    name: compact(m.name),\n    city: compact(m.city),\n    status: compact(m.status),\n    activity: compact(m.activity),\n    registration_date: compact(m.registration_date),\n  };\n  if (!/^\\d{12}$/.test(rec.bin)) return null;\n  return rec;\n}\n\nconst queryItem = pickQueryItem(items);\nconst query = queryItem.json || {};\nconst filters = (query.parsedFilters && typeof query.parsedFilters === 'object') ? query.parsedFilters : {};\nconst queryMode = compact(query.queryMode || 'generic');\nconst unsupportedReason = compact(query.unsupportedReason || '');\n\nif (queryMode === 'unsupported' || unsupportedReason) {\n  return [{ json: { response: { text: 'Недостаточно данных в контексте. Доступны только поля: БИН, название, город, статус, вид деятельности, дата регистрации.' } } }];\n}\n\nif (query.cacheHit && query.cachedResponseText) {\n  return [{ json: { response: { text: String(query.cachedResponseText) } } }];\n}\n\nconst docs = items\n  .filter((i) => i?.json?.document)\n  .map((i) => i.json.document)\n  .filter(Boolean);\n\nlet records = docs.map(toRecordFromDocument).filter(Boolean);\n\nconst byBin = new Map();\nfor (const r of records) if (!byBin.has(r.bin)) byBin.set(r.bin, r);\nrecords = [...byBin.values()];\n\nfunction matchesStrictFilters(r) {\n  if (filters.bin && r.bin !== String(filters.bin)) return false;\n  if (filters.companyName && r.name !== String(filters.companyName)) return false;\n  if (filters.city && r.city !== String(filters.city)) return false;\n  if (filters.status && r.status !== String(filters.status)) return false;\n  if (filters.activity && r.activity !== String(filters.activity)) return false;\n  return true;\n}\n\nfunction scoreByCompanyHint(r) {\n  const hint = normalizeForMatch(filters.companyHint || '');\n  if (!hint) return 0;\n  const n = normalizeForMatch(r.name);\n  if (!n) return 0;\n  if (n === hint) return 100;\n  if (n.includes(hint)) return 80;\n  if (hint.includes(n)) return 60;\n  const hintTokens = new Set(hint.split(' ').filter(Boolean));\n  const nameTokens = new Set(n.split(' ').filter(Boolean));\n  if (!hintTokens.size || !nameTokens.size) return 0;\n  let inter = 0;\n  for (const t of hintTokens) if (nameTokens.has(t)) inter++;\n  return Math.round((inter / hintTokens.size) * 40);\n}\n\nlet filtered = records.filter(matchesStrictFilters);\n\nif (!filtered.length && filters.companyHint) {\n  filtered = records\n    .map((r) => ({ r, s: scoreByCompanyHint(r) }))\n    .filter((x) => x.s >= 40)\n    .sort((a, b) => b.s - a.s)\n    .map((x) => x.r);\n}\n\nif (!filtered.length) {\n  return [{ json: { response: { text: 'Недостаточно данных в контексте.' } } }];\n}\n\nlet answer = '';\nif (queryMode === 'count') {\n  const counted = Number(query.metadataCount || filtered.length || 0);\n  answer = String(counted);\n} else if (queryMode === 'status_lookup') {\n  answer = filtered[0].status || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'registration_date_lookup') {\n  answer = filtered[0].registration_date || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'activity_lookup') {\n  answer = filtered[0].activity || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'bin_lookup') {\n  const r = filtered[0];\n  answer = `${r.name}, ${r.city}, ${r.status}`;\n} else {\n  const names = [...new Set(filtered.map((r) => r.name).filter(Boolean))].slice(0, 5);\n  answer = names.length ? names.join(', ') : 'Недостаточно данных в контексте.';\n}\n\nconst evidenceLines = filtered.slice(0, 3).map((r) => `Название: ${r.name} | БИН: ${r.bin} | Город: ${r.city} | Статус: ${r.status}`);\n\nlet finalText = answer;\nif (evidenceLines.length) {\n  finalText += '\\n\\nПодтверждение:\\n' + evidenceLines.map((x) => `- ${x}`).join('\\n');\n}\n\ntry {\n  if (typeof $getWorkflowStaticData === 'function' && query.cacheKey) {\n    const s = $getWorkflowStaticData('global');\n    s.answerCache = s.answerCache || {};\n    s.answerCache[query.cacheKey] = finalText;\n  }\n} catch (e) {\n  // Optional cache write: no-op if static data API is unavailable in current runtime.\n}\n\nreturn [{ json: { response: { text: finalText } } }];\n"
+          "jsCode": "const items = $input.all();\n\nfunction compact(s) {\n  return String(s || '').replace(/\\s+/g, ' ').trim();\n}\n\nfunction normalizeForMatch(s) {\n  return compact(s)\n    .toLowerCase()\n    .replace(/[\"«»']/g, '')\n    .replace(/(^|[\\s\\-])(тоо|ао|ип)(?=$|[\\s\\-])/giu, ' ')\n    .replace(/[^\\p{L}\\p{N}\\s-]+/gu, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction pickQueryItem(allItems) {\n  return allItems.find((i) => {\n    const j = i?.json || {};\n    return Boolean(j.queryMode || j.qdrantFilter || j.parsedFilters || j.retrievalMode || j.cacheKey);\n  }) || { json: {} };\n}\n\nfunction toRecordFromDocument(doc) {\n  const m = doc?.metadata || {};\n  const rec = {\n    bin: compact(m.bin),\n    name: compact(m.name),\n    city: compact(m.city),\n    status: compact(m.status),\n    activity: compact(m.activity),\n    registration_date: compact(m.registration_date),\n  };\n  if (!/^\\d{12}$/.test(rec.bin)) return null;\n  return rec;\n}\n\nfunction getLegalForm(name) {\n  const m = compact(name).match(/^(ТОО|АО|ИП)(?=$|[\\s\"«»'().,!?;:])/iu);\n  if (!m || !m[1]) return null;\n  return m[1].toUpperCase();\n}\n\nconst queryItem = pickQueryItem(items);\nconst query = queryItem.json || {};\nconst filters = (query.parsedFilters && typeof query.parsedFilters === 'object') ? query.parsedFilters : {};\nconst queryMode = compact(query.queryMode || 'generic');\nconst unsupportedReason = compact(query.unsupportedReason || '');\n\nfunction isRagOutputItem(i) {\n  const j = i?.json || {};\n  if (j.document) return false;\n  if (typeof j.text === 'string') return true;\n  if (typeof j?.response?.text === 'string') return true;\n  if (typeof j.response === 'string') return true;\n  return false;\n}\n\nconst answerBranchRaw = compact(query.answerBranch || '').toLowerCase();\nconst hasRagLikeOutput = items.some(isRagOutputItem);\nconst answerBranch = answerBranchRaw || (hasRagLikeOutput ? 'rag' : 'fast');\nconst modeLabel = answerBranch === 'rag' ? '[MODE: RAG]' : '[MODE: FAST]';\n\nfunction withMode(text) {\n  const body = String(text ?? '').trim();\n  if (!body) return modeLabel;\n  if (/^\\[MODE:\\s*(FAST|RAG)\\]/i.test(body)) return body;\n  return `${modeLabel}\\n${body}`;\n}\n\nfunction extractJsonCandidate(s) {\n  const text = compact(s);\n  if (!text) return null;\n\n  try {\n    return JSON.parse(text);\n  } catch (_) {}\n\n  const fenced = text.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/i);\n  if (fenced && fenced[1]) {\n    try {\n      return JSON.parse(fenced[1].trim());\n    } catch (_) {}\n  }\n  return null;\n}\n\nfunction extractAnswerFromRawText(s) {\n  const text = compact(s);\n  if (!text) return '';\n  const m = text.match(/\"answer\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"/i);\n  if (!m || !m[1]) return '';\n  try {\n    return JSON.parse(`\"${m[1]}\"`);\n  } catch (_) {\n    return m[1].replace(/\\\\\"/g, '\"');\n  }\n}\n\nfunction formatRagResponseText(raw) {\n  const txt = compact(raw);\n  if (!txt) return 'Недостаточно данных в контексте.';\n\n  const parsed = extractJsonCandidate(txt);\n  if (!parsed || typeof parsed !== 'object') {\n    const fallbackAnswer = compact(extractAnswerFromRawText(txt));\n    if (fallbackAnswer && !/\\\\$/.test(fallbackAnswer)) return fallbackAnswer;\n    return 'Недостаточно данных в контексте.';\n  }\n\n  const answer = compact(parsed.answer || parsed.text || '');\n  const evidence = Array.isArray(parsed.evidence) ? parsed.evidence.map((e) => compact(e)).filter(Boolean) : [];\n  const itemsList = Array.isArray(parsed.items) ? parsed.items : [];\n\n  let out = answer || 'Недостаточно данных в контексте.';\n  if (evidence.length) {\n    out += '\\n\\nПодтверждение:\\n' + evidence.slice(0, 5).map((e) => `- ${e}`).join('\\n');\n  } else if (itemsList.length) {\n    const lines = itemsList.slice(0, 5).map((it) => {\n      const name = compact(it?.name);\n      const bin = compact(it?.bin);\n      const city = compact(it?.city);\n      const status = compact(it?.status);\n      return `- Название: ${name} | БИН: ${bin} | Город: ${city} | Статус: ${status}`;\n    }).filter(Boolean);\n    if (lines.length) out += '\\n\\nПодтверждение:\\n' + lines.join('\\n');\n  }\n  return out;\n}\n\nif (queryMode === 'unsupported' || unsupportedReason) {\n  return [{ json: { response: { text: withMode('Недостаточно данных в контексте. Доступны только поля: БИН, название, город, статус, вид деятельности, дата регистрации.') } } }];\n}\n\nif (query.cacheHit && query.cachedResponseText) {\n  return [{ json: { response: { text: withMode(String(query.cachedResponseText)) } } }];\n}\n\nconst ragItem = items.find(isRagOutputItem);\nif (ragItem) {\n  const ragRaw = ragItem?.json?.text || ragItem?.json?.response?.text || ragItem?.json?.response || '';\n  const ragText = formatRagResponseText(ragRaw);\n  return [{ json: { response: { text: withMode(ragText) } } }];\n}\n\nconst docs = items\n  .filter((i) => i?.json?.document)\n  .map((i) => i.json.document)\n  .filter(Boolean);\n\nlet records = docs.map(toRecordFromDocument).filter(Boolean);\n\nconst byBin = new Map();\nfor (const r of records) if (!byBin.has(r.bin)) byBin.set(r.bin, r);\nrecords = [...byBin.values()];\n\nfunction matchesStrictFilters(r) {\n  if (filters.bin && r.bin !== String(filters.bin)) return false;\n  if (filters.companyName && r.name !== String(filters.companyName)) return false;\n  if (filters.legalForm && getLegalForm(r.name) !== String(filters.legalForm)) return false;\n  if (filters.city && r.city !== String(filters.city)) return false;\n  if (filters.status && r.status !== String(filters.status)) return false;\n  if (filters.activity && r.activity !== String(filters.activity)) return false;\n  return true;\n}\n\nfunction scoreByCompanyHint(r) {\n  const hint = normalizeForMatch(filters.companyHint || '');\n  if (!hint) return 0;\n  const n = normalizeForMatch(r.name);\n  if (!n) return 0;\n  if (n === hint) return 100;\n  if (n.includes(hint)) return 80;\n  if (hint.includes(n)) return 60;\n  const hintTokens = new Set(hint.split(' ').filter(Boolean));\n  const nameTokens = n.split(' ').filter(Boolean);\n  if (!hintTokens.size || !nameTokens.length) return 0;\n  let inter = 0;\n  for (const t of hintTokens) {\n    if (nameTokens.includes(t)) {\n      inter += 1;\n      continue;\n    }\n    const partial = nameTokens.some((nt) => {\n      if (nt.length < 4 || t.length < 4) return false;\n      return nt.startsWith(t) || t.startsWith(nt);\n    });\n    if (partial) inter += 0.7;\n  }\n  return Math.round((inter / hintTokens.size) * 50);\n}\n\nconst getGlobalStaticData = () => {\n  if (typeof $getWorkflowStaticData === 'function') return $getWorkflowStaticData('global');\n  if (typeof this !== 'undefined' && this && typeof this.getWorkflowStaticData === 'function') {\n    return this.getWorkflowStaticData('global');\n  }\n  return null;\n};\n\nlet filtered = records.filter(matchesStrictFilters);\n\nif (filters.companyHint) {\n  const fuzzyMatched = filtered\n    .map((r) => ({ r, s: scoreByCompanyHint(r) }))\n    .filter((x) => x.s >= 30)\n    .sort((a, b) => b.s - a.s)\n    .map((x) => x.r);\n\n  if (fuzzyMatched.length) filtered = fuzzyMatched;\n  else if (!filters.companyName) filtered = [];\n}\n\nif (!filtered.length) {\n  return [{ json: { response: { text: withMode('Недостаточно данных в контексте.') } } }];\n}\n\nconst needsSingleRecord = ['status_lookup', 'registration_date_lookup', 'activity_lookup'].includes(queryMode);\nif (needsSingleRecord && !filters.bin && !filters.companyName && filtered.length > 1) {\n  const askParts = [];\n  if (!filters.city) askParts.push('город');\n  if (!filters.legalForm) askParts.push('юрформу (ТОО/АО/ИП)');\n  if (!askParts.length) askParts.push('БИН');\n\n  const variants = filtered\n    .slice(0, 5)\n    .map((r) => `- ${r.name} — город: ${r.city || 'не указан'}, БИН: ${r.bin}`);\n\n  const clarifyText = [\n    'Найдено несколько компаний с похожим названием.',\n    `Уточните ${askParts.join(' или ')}.`,\n    'Варианты:',\n    ...variants,\n  ].join('\\n');\n\n  return [{ json: { response: { text: withMode(clarifyText) } } }];\n}\n\nlet answer = '';\nif (queryMode === 'count') {\n  const counted = Number(query.metadataCount || filtered.length || 0);\n  answer = String(counted);\n} else if (queryMode === 'status_lookup') {\n  answer = filtered[0].status || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'registration_date_lookup') {\n  answer = filtered[0].registration_date || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'activity_lookup') {\n  answer = filtered[0].activity || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'bin_lookup') {\n  const r = filtered[0];\n  answer = `${r.name}, ${r.city}, ${r.status}`;\n} else {\n  const names = [...new Set(filtered.map((r) => r.name).filter(Boolean))].slice(0, 5);\n  answer = names.length ? names.join(', ') : 'Недостаточно данных в контексте.';\n}\n\nconst evidenceLines = filtered.slice(0, 3).map((r) => `Название: ${r.name} | БИН: ${r.bin} | Город: ${r.city} | Статус: ${r.status}`);\n\nlet finalText = answer;\nif (evidenceLines.length) {\n  finalText += '\\n\\nПодтверждение:\\n' + evidenceLines.map((x) => `- ${x}`).join('\\n');\n}\nfinalText = withMode(finalText);\n\ntry {\n  if (query.cacheKey) {\n    const s = getGlobalStaticData();\n    if (!s) throw new Error('no_static_data_api');\n    s.answerCache = s.answerCache || {};\n    s.answerCache[query.cacheKey] = finalText;\n  }\n} catch (e) {\n  // Optional cache write: no-op if static data API is unavailable in current runtime.\n}\n\nreturn [{ json: { response: { text: finalText } } }];"
         },
         "id": "format-final-answer",
         "name": "Format Final Answer",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          736,
-          96
+          576,
+          64
         ]
       },
       {
@@ -179,8 +179,8 @@
         "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
         "typeVersion": 1,
         "position": [
-          224,
-          -64
+          -208,
+          144
         ],
         "credentials": {
           "qdrantApi": {
@@ -196,20 +196,40 @@
         "type": "n8n-nodes-base.merge",
         "typeVersion": 3.2,
         "position": [
-          560,
-          -112
+          640,
+          288
         ]
       },
       {
         "parameters": {
-          "jsCode": "const inputItems = $input.all();\n\nfunction asArray(v) {\n  return Array.isArray(v) ? v : [];\n}\n\nfunction sleep(ms) {\n  return new Promise((resolve) => setTimeout(resolve, ms));\n}\n\nasync function fetchWithTimeout(url, options, timeoutMs) {\n  return await Promise.race([\n    fetch(url, options),\n    new Promise((_, reject) => {\n      setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms: ${url}`)), timeoutMs);\n    }),\n  ]);\n}\n\nasync function postJson(baseUrl, path, body, timeoutMs = 2500) {\n  const res = await fetchWithTimeout(`${baseUrl}${path}`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify(body || {}),\n  }, timeoutMs);\n\n  if (!res.ok) {\n    const text = await res.text().catch(() => '');\n    throw new Error(`HTTP ${res.status} ${path}: ${text.slice(0, 200)}`);\n  }\n  return await res.json();\n}\n\nasync function postWithFallback(baseUrls, path, body, timeoutMs = 2500) {\n  let lastErr = null;\n  for (const baseUrl of baseUrls) {\n    try {\n      return await postJson(baseUrl, path, body, timeoutMs);\n    } catch (err) {\n      lastErr = err;\n      await sleep(20);\n    }\n  }\n  throw lastErr || new Error(`Request failed: ${path}`);\n}\n\nfunction toDocItemFromPayload(payload) {\n  const metadata = payload?.metadata || {};\n  const pageContent = payload?.pageContent || '';\n  return {\n    json: {\n      document: {\n        pageContent,\n        metadata,\n      },\n    },\n  };\n}\n\nasync function run() {\n  const output = [];\n\n  for (const item of inputItems) {\n    const query = item?.json || {};\n\n    if (query.queryMode === 'unsupported' || query.retrievalMode === 'none' || query.cacheHit) {\n      output.push({ json: { ...query } });\n      continue;\n    }\n\n    const qdrantUrls = ['http://qdrant:6333', 'http://localhost:6333'];\n    const ollamaUrls = ['http://ollama:11434', 'http://localhost:11434'];\n\n    const filter = query.qdrantFilter || {};\n    const hasFilter = Boolean(filter && Array.isArray(filter.must) && filter.must.length);\n\n    if (query.retrievalMode === 'metadata') {\n      const countBody = {\n        exact: true,\n        ...(hasFilter ? { filter } : {}),\n      };\n\n      const countRes = await postWithFallback(qdrantUrls, '/collections/kz_companies/points/count', countBody, 3000);\n\n      const scrollBody = {\n        limit: Number(query.metadataTopK || 50),\n        with_payload: true,\n        with_vector: false,\n        ...(hasFilter ? { filter } : {}),\n      };\n\n      const scrollRes = await postWithFallback(qdrantUrls, '/collections/kz_companies/points/scroll', scrollBody, 4000);\n      const points = asArray(scrollRes?.result?.points);\n\n      output.push({ json: { ...query, metadataCount: Number(countRes?.result?.count || 0) } });\n      for (const p of points) {\n        output.push(toDocItemFromPayload(p?.payload || {}));\n      }\n      continue;\n    }\n\n    const embBody = {\n      model: 'bge-m3:latest',\n      prompt: query.retrievalQuery || query.chatInput || '',\n    };\n    const embRes = await postWithFallback(ollamaUrls, '/api/embeddings', embBody, 4000);\n    const embedding = embRes?.embedding;\n    if (!Array.isArray(embedding) || !embedding.length) {\n      output.push({ json: { ...query, retrievalError: 'embedding_failed' } });\n      continue;\n    }\n\n    const searchBody = {\n      vector: embedding,\n      limit: Number(query.semanticTopK || 10),\n      with_payload: true,\n      with_vector: false,\n      ...(hasFilter ? { filter } : {}),\n    };\n    const searchRes = await postWithFallback(qdrantUrls, '/collections/kz_companies/points/search', searchBody, 4500);\n    const hits = asArray(searchRes?.result);\n\n    output.push({ json: { ...query } });\n    for (const h of hits) {\n      output.push(toDocItemFromPayload(h?.payload || {}));\n    }\n  }\n\n  return output;\n}\n\nreturn run();\n"
+          "jsCode": "const inputItems = $input.all();\n\nfunction asArray(v) {\n  return Array.isArray(v) ? v : [];\n}\n\nfunction sleep(ms) {\n  return new Promise((resolve) => setTimeout(resolve, ms));\n}\n\nconst httpRequest = this.helpers.httpRequest.bind(this.helpers);\n\nasync function postJson(baseUrl, path, body, timeoutMs = 2500) {\n  try {\n    return await httpRequest({\n      method: 'POST',\n      url: `${baseUrl}${path}`,\n      body: body || {},\n      json: true,\n      timeout: timeoutMs,\n      headers: { 'Content-Type': 'application/json' },\n    });\n  } catch (err) {\n    const status = err?.statusCode || err?.response?.statusCode || err?.response?.status || 'ERR';\n    const msg = err?.message || err?.description || 'request_failed';\n    throw new Error(`HTTP ${status} ${path}: ${msg}`);\n  }\n}\n\nasync function postWithFallback(baseUrls, path, body, timeoutMs = 2500) {\n  let lastErr = null;\n  for (const baseUrl of baseUrls) {\n    try {\n      return await postJson(baseUrl, path, body, timeoutMs);\n    } catch (err) {\n      lastErr = err;\n      await sleep(20);\n    }\n  }\n  throw lastErr || new Error(`Request failed: ${path}`);\n}\n\nfunction toDocItemFromPayload(payload) {\n  const metadata = payload?.metadata || {};\n  const pageContent = payload?.pageContent || '';\n  return {\n    json: {\n      document: {\n        pageContent,\n        metadata,\n      },\n    },\n  };\n}\n\nasync function run() {\n  const output = [];\n\n  for (const item of inputItems) {\n    const query = item?.json || {};\n\n    if (query.queryMode === 'unsupported' || query.retrievalMode === 'none' || query.cacheHit) {\n      output.push({ json: { ...query } });\n      continue;\n    }\n\n    const qdrantUrls = ['http://qdrant:6333', 'http://localhost:6333'];\n    const ollamaUrls = ['http://ollama:11434', 'http://localhost:11434'];\n\n    const filter = query.qdrantFilter || {};\n    const hasFilter = Boolean(filter && Array.isArray(filter.must) && filter.must.length);\n\n    if (query.retrievalMode === 'metadata') {\n      const countBody = {\n        exact: true,\n        ...(hasFilter ? { filter } : {}),\n      };\n\n      const countRes = await postWithFallback(qdrantUrls, '/collections/kz_companies/points/count', countBody, 3000);\n\n      const scrollBody = {\n        limit: Number(query.metadataTopK || 50),\n        with_payload: true,\n        with_vector: false,\n        ...(hasFilter ? { filter } : {}),\n      };\n\n      const scrollRes = await postWithFallback(qdrantUrls, '/collections/kz_companies/points/scroll', scrollBody, 4000);\n      const points = asArray(scrollRes?.result?.points);\n\n      output.push({ json: { ...query, metadataCount: Number(countRes?.result?.count || 0) } });\n      for (const p of points) {\n        output.push(toDocItemFromPayload(p?.payload || {}));\n      }\n      continue;\n    }\n\n    const embBody = {\n      model: 'bge-m3:latest',\n      prompt: query.retrievalQuery || query.chatInput || '',\n    };\n    const embRes = await postWithFallback(ollamaUrls, '/api/embeddings', embBody, 4000);\n    const embedding = embRes?.embedding;\n    if (!Array.isArray(embedding) || !embedding.length) {\n      output.push({ json: { ...query, retrievalError: 'embedding_failed' } });\n      continue;\n    }\n\n    const searchBody = {\n      vector: embedding,\n      limit: Number(query.semanticTopK || 10),\n      with_payload: true,\n      with_vector: false,\n      ...(hasFilter ? { filter } : {}),\n    };\n    const searchRes = await postWithFallback(qdrantUrls, '/collections/kz_companies/points/search', searchBody, 4500);\n    const hits = asArray(searchRes?.result);\n\n    output.push({ json: { ...query } });\n    for (const h of hits) {\n      output.push(toDocItemFromPayload(h?.payload || {}));\n    }\n  }\n\n  return output;\n}\n\nreturn run();\n"
         },
         "id": "retrieve-candidates",
         "name": "Retrieve Candidates",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          376,
+          448,
+          -128
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "string": [
+              {
+                "value1": "={{ $json.answerBranch || \"fast\" }}",
+                "value2": "rag"
+              }
+            ]
+          }
+        },
+        "id": "route-answer-branch",
+        "name": "Route Answer Branch",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [
+          224,
           -128
         ]
       }
@@ -269,7 +289,13 @@
       },
       "Question Answering Chain": {
         "main": [
-          []
+          [
+            {
+              "node": "Format Final Answer",
+              "type": "main",
+              "index": 0
+            }
+          ]
         ]
       },
       "When chat message received": {
@@ -287,7 +313,7 @@
         "main": [
           [
             {
-              "node": "Retrieve Candidates",
+              "node": "Route Answer Branch",
               "type": "main",
               "index": 0
             }
@@ -319,19 +345,68 @@
             }
           ]
         ]
+      },
+      "Route Answer Branch": {
+        "main": [
+          [
+            {
+              "node": "Question Answering Chain",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Retrieve Candidates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "settings": {},
-    "staticData": null,
+    "staticData": {
+      "global": {
+        "answerCache": {
+          "какой статус у компании тоо нуртех групп": "Активно\n\nПодтверждение:\n- Название: ТОО \"НурТех Групп\" | БИН: 687156468494 | Город: Алматы | Статус: Активно",
+          "какой статус у нуртех групп": "Активно\n\nПодтверждение:\n- Название: ИП \"Орда\" | БИН: 182837365101 | Город: Павлодар | Статус: Активно\n- Название: ТОО \"Лидер Тех\" | БИН: 200663178163 | Город: Алматы | Статус: Активно\n- Название: ИП \"АгроПром\" | БИН: 543782576388 | Город: Шымкент | Статус: Активно",
+          "v2:какой статус у нуртех групп": "Активно\n\nПодтверждение:\n- Название: ИП \"Орда\" | БИН: 182837365101 | Город: Павлодар | Статус: Активно\n- Название: ТОО \"Лидер Тех\" | БИН: 200663178163 | Город: Алматы | Статус: Активно\n- Название: ИП \"АгроПром\" | БИН: 543782576388 | Город: Шымкент | Статус: Активно",
+          "v3:какой статус у нуртех групп": "Активно\n\nПодтверждение:\n- Название: АО \"НурТех Групп\" | БИН: 776411594991 | Город: Тараз | Статус: Активно\n- Название: ТОО \"НурТех Групп\" | БИН: 687156468494 | Город: Алматы | Статус: Активно",
+          "v3:какой статус у нуртех груп": "Активно\n\nПодтверждение:\n- Название: АО \"НурТех Групп\" | БИН: 776411594991 | Город: Тараз | Статус: Активно\n- Название: ТОО \"НурТех Групп\" | БИН: 687156468494 | Город: Алматы | Статус: Активно",
+          "v3:сколько ликвидированных компаний в павлодаре": "4\n\nПодтверждение:\n- Название: ТОО \"Меридиан Сервис\" | БИН: 923247811948 | Город: Павлодар | Статус: Ликвидировано\n- Название: ИП \"Шанырак Групп\" | БИН: 158965931802 | Город: Павлодар | Статус: Ликвидировано\n- Название: ТОО \"Прогресс Тех\" | БИН: 835855226311 | Город: Павлодар | Статус: Ликвидировано",
+          "v3:покажи похожие на it компании": "ТОО \"Сигма Сервис\", АО \"Орда Трейд\", АО \"Орда Тех\", ТОО \"Континент Тех\", АО \"Жулдыз Инвест\"\n\nПодтверждение:\n- Название: ТОО \"Сигма Сервис\" | БИН: 778370394729 | Город: Усть-Каменогорск | Статус: Активно\n- Название: АО \"Орда Трейд\" | БИН: 237302403040 | Город: Атырау | Статус: Активно\n- Название: АО \"Орда Тех\" | БИН: 359304190129 | Город: Караганда | Статус: Активно",
+          "v3:какой статус у компании тоо континент тех": "Активно\n\nПодтверждение:\n- Название: ТОО \"Континент Тех\" | БИН: 683782409157 | Город: Усть-Каменогорск | Статус: Активно",
+          "v3:какой статус у компании тоо нуртех групп": "Активно\n\nПодтверждение:\n- Название: ТОО \"НурТех Групп\" | БИН: 687156468494 | Город: Алматы | Статус: Активно",
+          "v3:подбери что-то про обслуживание оборудования похожие компании": "АО \"Лидер Трейд\", АО \"DataLine Групп\", АО \"Достык Трейд\", АО \"СмартСолюшн\", ТОО \"Самрук Сервис\"\n\nПодтверждение:\n- Название: АО \"Лидер Трейд\" | БИН: 198503450940 | Город: Усть-Каменогорск | Статус: Активно\n- Название: АО \"DataLine Групп\" | БИН: 988335239225 | Город: Караганда | Статус: Ликвидировано\n- Название: АО \"Достык Трейд\" | БИН: 870013412146 | Город: Актобе | Статус: Активно",
+          "v5:какой статус у компании нуртех групп": "Активно\n\nПодтверждение:\n- Название: ТОО \"НурТех Групп\" | БИН: 687156468494 | Город: Алматы | Статус: Активно",
+          "v5:подбери что-то про обслуживание оборудования похожие компании": "АО \"Лидер Трейд\", АО \"DataLine Групп\", АО \"Достык Трейд\", АО \"СмартСолюшн\", ТОО \"Самрук Сервис\"\n\nПодтверждение:\n- Название: АО \"Лидер Трейд\" | БИН: 198503450940 | Город: Усть-Каменогорск | Статус: Активно\n- Название: АО \"DataLine Групп\" | БИН: 988335239225 | Город: Караганда | Статус: Ликвидировано\n- Название: АО \"Достык Трейд\" | БИН: 870013412146 | Город: Актобе | Статус: Активно",
+          "v5:сколько ликвидированных компаний в павлодаре": "4\n\nПодтверждение:\n- Название: ТОО \"Меридиан Сервис\" | БИН: 923247811948 | Город: Павлодар | Статус: Ликвидировано\n- Название: ИП \"Шанырак Групп\" | БИН: 158965931802 | Город: Павлодар | Статус: Ликвидировано\n- Название: ТОО \"Прогресс Тех\" | БИН: 835855226311 | Город: Павлодар | Статус: Ликвидировано",
+          "v5:какой статус у нуртех групп": "Активно\n\nПодтверждение:\n- Название: АО \"НурТех Групп\" | БИН: 776411594991 | Город: Тараз | Статус: Активно",
+          "v6:какой статус у компании нуртех групп": "Активно\n\nПодтверждение:\n- Название: ТОО \"НурТех Групп\" | БИН: 687156468494 | Город: Алматы | Статус: Активно",
+          "v7:fast:какой статус у компании нуртех групп": "Активно\n\nПодтверждение:\n- Название: ТОО \"НурТех Групп\" | БИН: 687156468494 | Город: Алматы | Статус: Активно",
+          "v7:fast:сколько активных компаний в алматы": "[MODE: FAST]\n13\n\nПодтверждение:\n- Название: ТОО \"Лидер Тех\" | БИН: 200663178163 | Город: Алматы | Статус: Активно\n- Название: ТОО \"Ақ жол Плюс\" | БИН: 794529888366 | Город: Алматы | Статус: Активно\n- Название: ИП \"КомфортСервис Сервис\" | БИН: 576266444796 | Город: Алматы | Статус: Активно",
+          "v7:fast:какой статус у компании дельта плюс": "[MODE: FAST]\nАктивно\n\nПодтверждение:\n- Название: АО \"Дельта Плюс\" | БИН: 899050535267 | Город: Павлодар | Статус: Активно",
+          "v7:fast:сколько активных компаний в павлодаре": "[MODE: FAST]\n15\n\nПодтверждение:\n- Название: ИП \"Орда\" | БИН: 182837365101 | Город: Павлодар | Статус: Активно\n- Название: ТОО \"Платинум\" | БИН: 337322386179 | Город: Павлодар | Статус: Активно\n- Название: ТОО \"СмартСолюшн Плюс\" | БИН: 861854335443 | Город: Павлодар | Статус: Активно",
+          "v8:fast:дельта плюс павлодар": "[MODE: FAST]\nАктивно\n\nПодтверждение:\n- Название: АО \"Дельта Плюс\" | БИН: 899050535267 | Город: Павлодар | Статус: Активно",
+          "v8:fast:альянс групп алматы": "[MODE: FAST]\nАктивно\n\nПодтверждение:\n- Название: ИП \"Альянс Групп\" | БИН: 196831611956 | Город: Алматы | Статус: Активно",
+          "v8:fast:гранит трейд астана": "[MODE: FAST]\nАктивно\n\nПодтверждение:\n- Название: АО \"Гранит Трейд\" | БИН: 781304820142 | Город: Астана | Статус: Активно",
+          "v8:fast:какой статус у компании дельта плюс": "[MODE: FAST]\nАктивно\n\nПодтверждение:\n- Название: АО \"Дельта Плюс\" | БИН: 899050535267 | Город: Павлодар | Статус: Активно",
+          "v8:fast:когда зарегистрирована компания альянс групп": "[MODE: FAST]\n2016-05-02\n\nПодтверждение:\n- Название: ИП \"Альянс Групп\" | БИН: 196831611956 | Город: Алматы | Статус: Активно",
+          "v8:fast:чем занимается компания гранит трейд": "[MODE: FAST]\nСтроительство зданий и сооружений\n\nПодтверждение:\n- Название: АО \"Гранит Трейд\" | БИН: 781304820142 | Город: Астана | Статус: Активно",
+          "v8:fast:сколько активных компаний в павлодаре": "[MODE: FAST]\n15\n\nПодтверждение:\n- Название: ИП \"Орда\" | БИН: 182837365101 | Город: Павлодар | Статус: Активно\n- Название: ТОО \"Платинум\" | БИН: 337322386179 | Город: Павлодар | Статус: Активно\n- Название: ТОО \"СмартСолюшн Плюс\" | БИН: 861854335443 | Город: Павлодар | Статус: Активно",
+          "v8:fast:найди активные компании в алматы": "[MODE: FAST]\nТОО \"Лидер Тех\", ТОО \"Ақ жол Плюс\", ИП \"КомфортСервис Сервис\", ТОО \"Сигма Строй\", ИП \"Тулпар Строй\"\n\nПодтверждение:\n- Название: ТОО \"Лидер Тех\" | БИН: 200663178163 | Город: Алматы | Статус: Активно\n- Название: ТОО \"Ақ жол Плюс\" | БИН: 794529888366 | Город: Алматы | Статус: Активно\n- Название: ИП \"КомфортСервис Сервис\" | БИН: 576266444796 | Город: Алматы | Статус: Активно"
+        }
+      }
+    },
     "meta": {
       "templateCredsSetupCompleted": true
     },
     "pinData": {},
-    "versionId": "146b35fe-3d08-40cb-b5d1-ae2baa2691db",
-    "activeVersionId": "146b35fe-3d08-40cb-b5d1-ae2baa2691db",
-    "versionCounter": 123,
+    "versionId": "3f0ed180-4f63-4a3e-8e26-e7f6011b01d7",
+    "activeVersionId": "3f0ed180-4f63-4a3e-8e26-e7f6011b01d7",
+    "versionCounter": 286,
     "triggerCount": 1,
-    "tags": [],
     "shared": [
       {
         "updatedAt": "2026-04-14T11:48:33.130Z",
@@ -347,9 +422,445 @@
           "type": "personal",
           "icon": null,
           "description": null,
-          "creatorId": "6b44d551-c1e8-4d95-a141-3c33877749ea"
+          "creatorId": "6b44d551-c1e8-4d95-a141-3c33877749ea",
+          "projectRelations": [
+            {
+              "updatedAt": "2026-04-14T09:08:32.422Z",
+              "createdAt": "2026-04-14T09:08:32.422Z",
+              "userId": "6b44d551-c1e8-4d95-a141-3c33877749ea",
+              "projectId": "QIhKzmruH08LVbsX",
+              "user": {
+                "updatedAt": "2026-04-18T19:07:43.000Z",
+                "createdAt": "2026-04-14T09:08:32.271Z",
+                "id": "6b44d551-c1e8-4d95-a141-3c33877749ea",
+                "email": "nazarov.ramis66@gmail.com",
+                "firstName": "Рамис",
+                "lastName": "Назаров",
+                "personalizationAnswers": {
+                  "version": "v4",
+                  "personalization_survey_submitted_at": "2026-04-14T11:49:44.798Z",
+                  "personalization_survey_n8n_version": "2.2.6",
+                  "automationGoalDevops": [
+                    "data-syncing"
+                  ],
+                  "companySize": "personalUser",
+                  "companyType": "systems-integrator",
+                  "role": "devops",
+                  "reportedSource": "linkedin"
+                },
+                "settings": {
+                  "userActivated": true,
+                  "easyAIWorkflowOnboarded": true,
+                  "firstSuccessfulWorkflowId": "nQjnLUKAEuy82DSP",
+                  "userActivatedAt": 1776239904390,
+                  "npsSurvey": {
+                    "waitingForResponse": true,
+                    "ignoredCount": 1,
+                    "lastShownAt": 1776507672982
+                  }
+                },
+                "disabled": false,
+                "mfaEnabled": false,
+                "lastActiveAt": "2026-04-18",
+                "isPending": false
+              }
+            }
+          ]
         }
       }
-    ]
+    ],
+    "tags": [],
+    "parentFolder": null,
+    "activeVersion": {
+      "updatedAt": "2026-04-19T07:55:28.169Z",
+      "createdAt": "2026-04-19T07:55:28.169Z",
+      "versionId": "3f0ed180-4f63-4a3e-8e26-e7f6011b01d7",
+      "workflowId": "nQjnLUKAEuy82DSP",
+      "nodes": [
+        {
+          "parameters": {
+            "public": true,
+            "mode": "webhook",
+            "options": {
+              "responseMode": "lastNode"
+            }
+          },
+          "id": "chat-trigger",
+          "name": "When chat message received",
+          "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+          "typeVersion": 1.4,
+          "position": [
+            -208,
+            -128
+          ],
+          "webhookId": "62eb0006-34f6-4d09-987e-edf71ca0b255"
+        },
+        {
+          "parameters": {
+            "query": "={{ $json.retrievalQuery || $json.chatInput }}",
+            "options": {
+              "systemPromptTemplate": "Ты ассистент поиска по базе юридических лиц Казахстана. Используй только данные из блока Контекст. Не используй внешние знания и не придумывай факты.\\n\\nСначала определи query_mode из строки вида query_mode=... во входном вопросе.\\nВозможные режимы: count, bin_lookup, status_lookup, registration_date_lookup, activity_lookup, list, generic.\\n\\nКритично: нельзя придумывать названия компаний, БИН, города или статусы. Каждая компания в ответе должна существовать в контексте.\\n\\nВерни строго JSON и ничего больше в формате:\\n{{\"query_mode\":\"...\",\"answer\":\"...\",\"count\":0,\"items\":[{{\"bin\":\"...\",\"name\":\"...\",\"city\":\"...\",\"status\":\"...\",\"activity\":\"...\",\"registration_date\":\"...\"}}],\"evidence\":[\"...\"]}}\\n\\nПравила заполнения:\\n1) Для count: count = число уникальных компаний (по БИН) в items, answer = строка с этим числом.\\n2) Для status_lookup/date_lookup/activity_lookup: answer = конкретное значение поля по релевантной компании.\\n3) Для bin_lookup/list/generic: answer = список названий или краткий факт, но только из items.\\n4) evidence — массив коротких строк-подтверждений только из контекста.\\n5) Если релевантных данных нет: answer=\"Недостаточно данных в контексте.\", count=0, items=[], evidence=[].\\n\\nКонтекст:\\n{context}\\n\\nВопрос:\\n{input}"
+            }
+          },
+          "id": "qa-chain",
+          "name": "Question Answering Chain",
+          "type": "@n8n/n8n-nodes-langchain.chainRetrievalQa",
+          "typeVersion": 1,
+          "position": [
+            144,
+            64
+          ]
+        },
+        {
+          "parameters": {
+            "model": "gemma3:4b",
+            "options": {
+              "temperature": 0,
+              "topK": 20,
+              "topP": 0.9,
+              "keepAlive": "5m",
+              "numCtx": 2048,
+              "numPredict": 96,
+              "format": "json"
+            }
+          },
+          "id": "ollama-model",
+          "name": "Ollama Chat Model",
+          "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+          "typeVersion": 1,
+          "position": [
+            112,
+            256
+          ],
+          "credentials": {
+            "ollamaApi": {
+              "id": "UzaVRkhjopgk8Rvh",
+              "name": "Ollama account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "qdrantCollection": {
+              "__rl": true,
+              "value": "kz_companies",
+              "mode": "list",
+              "cachedResultName": "kz_companies"
+            },
+            "options": {
+              "searchFilterJson": "={{ $json.qdrantFilter || {} }}",
+              "contentPayloadKey": "pageContent",
+              "metadataPayloadKey": "metadata"
+            }
+          },
+          "id": "qdrant-retriever",
+          "name": "Qdrant Vector Store",
+          "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+          "typeVersion": 1,
+          "position": [
+            224,
+            336
+          ],
+          "credentials": {
+            "qdrantApi": {
+              "id": "pAgsxavxE7SUpUsV",
+              "name": "QdrantApi account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "model": "bge-m3:latest"
+          },
+          "id": "ollama-embeddings-2",
+          "name": "Ollama Embeddings",
+          "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+          "typeVersion": 1,
+          "position": [
+            -80,
+            368
+          ],
+          "credentials": {
+            "ollamaApi": {
+              "id": "UzaVRkhjopgk8Rvh",
+              "name": "Ollama account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "topK": "={{ $json.topK || 6 }}"
+          },
+          "type": "@n8n/n8n-nodes-langchain.retrieverVectorStore",
+          "typeVersion": 1,
+          "position": [
+            224,
+            208
+          ],
+          "id": "28958f3c-d83e-4f14-9c9e-f5cedb0ce86f",
+          "name": "Vector Store Retriever"
+        },
+        {
+          "parameters": {
+            "jsCode": "const cityAliases = {\n  'алматы': 'Алматы',\n  'астана': 'Астана',\n  'нур-султан': 'Астана',\n  'нурсултан': 'Астана',\n  'шымкент': 'Шымкент',\n  'караганда': 'Караганда',\n  'актау': 'Актау',\n  'атырау': 'Атырау',\n  'павлодар': 'Павлодар',\n  'костанай': 'Костанай',\n  'усть-каменогорск': 'Усть-Каменогорск',\n};\n\nconst knownActivities = [\n  'Строительство зданий и сооружений',\n  'Консалтинговые услуги',\n  'Образовательные услуги',\n  'Телекоммуникации',\n  'Розничная торговля',\n  'Техническое обслуживание оборудования',\n  'Производство продуктов питания',\n  'Сельское хозяйство',\n  'Добыча полезных ископаемых',\n  'Транспорт и логистика',\n  'Медицинские услуги',\n  'Архитектура и проектирование',\n  'Оптовая торговля',\n  'Рекламные услуги',\n  'Разработка программного обеспечения',\n  'Юридические услуги',\n  'Производство мебели',\n  'Финансовые услуги',\n  'Бухгалтерский учёт и аудит',\n  'Ресторанный бизнес',\n];\n\nfunction compactText(s) {\n  return String(s || '').replace(/\\s+/g, ' ').trim();\n}\n\nfunction normalizeForMatch(s) {\n  return compactText(s)\n    .toLowerCase()\n    .replace(/[\"«»']/g, '')\n    .replace(/(^|[\\s\\-])(тоо|ао|ип)(?=$|[\\s\\-])/giu, ' ')\n    .replace(/[^\\p{L}\\p{N}\\s-]+/gu, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction detectCity(lower) {\n  const cityRules = [\n    { canon: 'Астана', regex: /(нур-?султан|астан)/i },\n    { canon: 'Алматы', regex: /(алмат)/i },\n    { canon: 'Шымкент', regex: /(шымкент)/i },\n    { canon: 'Караганда', regex: /(караганд)/i },\n    { canon: 'Актау', regex: /(актау)/i },\n    { canon: 'Атырау', regex: /(атырау)/i },\n    { canon: 'Павлодар', regex: /(павлодар)/i },\n    { canon: 'Костанай', regex: /(костанай)/i },\n    { canon: 'Усть-Каменогорск', regex: /(усть-?каменогорск)/i },\n  ];\n\n  for (const rule of cityRules) {\n    if (rule.regex.test(lower)) return rule.canon;\n  }\n\n  for (const [alias, canon] of Object.entries(cityAliases)) {\n    if (lower.includes(alias)) return canon;\n  }\n\n  return null;\n}\n\nfunction detectActivity(lower) {\n  for (const v of knownActivities) {\n    if (lower.includes(v.toLowerCase())) return v;\n  }\n\n  if (/(разработк|программ|it|айти|software|технолог)/i.test(lower)) return 'Разработка программного обеспечения';\n  if (/(строит|construction|зданий|сооружений)/i.test(lower)) return 'Строительство зданий и сооружений';\n  if (/(технич|обслуживан.*оборуд)/i.test(lower)) return 'Техническое обслуживание оборудования';\n  if (/(архитект|проектирован)/i.test(lower)) return 'Архитектура и проектирование';\n  if (/(транспорт|логист|доставк|склад)/i.test(lower)) return 'Транспорт и логистика';\n  if (/(оптов)/i.test(lower)) return 'Оптовая торговля';\n  if (/(рознич)/i.test(lower)) return 'Розничная торговля';\n  if (/(финанс|банк|инвест|страх)/i.test(lower)) return 'Финансовые услуги';\n\n  return null;\n}\n\nfunction normalizeLegalFormPrefix(s) {\n  return compactText(s)\n    .replace(/^тоо\\b/i, 'ТОО')\n    .replace(/^ао\\b/i, 'АО')\n    .replace(/^ип\\b/i, 'ИП');\n}\n\nfunction cleanupFreeformCompanyHint(raw, city) {\n  let hint = normalizeForMatch(raw);\n  if (!hint) return '';\n\n  const cityNorm = normalizeForMatch(city || '');\n  if (cityNorm) {\n    const cityTokens = new Set(cityNorm.split(' ').filter(Boolean));\n    hint = hint\n      .split(' ')\n      .filter((t) => t && !cityTokens.has(t))\n      .join(' ');\n  }\n\n  hint = hint\n    .replace(/\\b(какой|какая|какие|какую|где|когда|сколько|количество|число|статус|компания|компании|компанию|дата|регистрации|вид|деятельности|чем|занимается|занимаются|найди|покажи|перечисли|список|все|подбери|по|в|у|на|из)\\b/giu, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  return hint;\n}\n\nfunction detectLegalForm(chatInput) {\n  const m = chatInput.match(/(?:^|[\\s\"«»'().,!?;:])(тоо|ао|ип)(?=$|[\\s\"«»'().,!?;:])/iu);\n  if (!m || !m[1]) return null;\n  const v = m[1].toUpperCase();\n  if (v === 'ТОО' || v === 'АО' || v === 'ИП') return v;\n  return null;\n}\n\nfunction detectCompanyName(chatInput, lower, city) {\n  const quotedLegal = chatInput.match(/(?:ТОО|АО|ИП)\\s*[\"«][^\"»]+[\"»]/i);\n  if (quotedLegal && quotedLegal[0]) {\n    const exact = normalizeLegalFormPrefix(quotedLegal[0].replace(/[«»]/g, '\"'));\n    const hint = normalizeForMatch(exact);\n    return { exact, hint, confidence: 'high' };\n  }\n\n  const quotedAny = chatInput.match(/[\"«]([^\"»]{2,})[\"»]/);\n  if (quotedAny && quotedAny[1]) {\n    const exact = compactText(quotedAny[1]);\n    const hint = normalizeForMatch(exact);\n    return { exact: null, hint, confidence: 'medium' };\n  }\n\n  const phrase = chatInput.match(/(?:компани[ияи]\\s+|у\\s+компани[ияи]\\s+)([\\p{L}\\p{N}\\s-]{3,})/iu);\n  if (phrase && phrase[1]) {\n    const raw = compactText(phrase[1]).replace(/[?!.,;:]+$/g, '');\n    const hint = normalizeForMatch(raw);\n    if (hint) return { exact: null, hint, confidence: 'low' };\n  }\n\n  const statusSubject = chatInput.match(/(?:какой\\s+статус\\s+у|статус\\s+у)\\s+([\\p{L}\\p{N}\\s\"«».-]{3,})/iu);\n  if (statusSubject && statusSubject[1]) {\n    const raw = compactText(statusSubject[1])\n      .replace(/[?!.,;:]+$/g, '')\n      .replace(/\\s+(в|из|по)\\s+[^\\s]+.*$/iu, '')\n      .trim();\n    const hint = normalizeForMatch(raw);\n    if (hint && !/^(компани|компания|компанию)$/.test(hint)) {\n      return { exact: null, hint, confidence: 'medium' };\n    }\n  }\n\n  const freeformHint = cleanupFreeformCompanyHint(chatInput, city);\n  if (freeformHint && freeformHint.split(' ').length <= 4) {\n    return { exact: null, hint: freeformHint, confidence: 'low' };\n  }\n\n  return { exact: null, hint: null, confidence: 'none' };\n}\n\nfunction needsSemanticFallback(lower, hasAnyFilter, queryMode) {\n  if (queryMode === 'generic') return true;\n  if (!hasAnyFilter && queryMode === 'list') return true;\n  if (/(похож|аналог|схож|примерно|технологическ|что[- ]?то|какие\\s+есть)/i.test(lower)) return true;\n  return false;\n}\n\nfunction extractAnswerBranch(rawInput) {\n  let text = compactText(rawInput);\n  let branch = 'fast';\n\n  const slashMode = text.match(/^\\/mode\\s+(rag|fast)\\b/i);\n  if (slashMode) {\n    branch = slashMode[1].toLowerCase();\n    text = compactText(text.replace(/^\\/mode\\s+(rag|fast)\\b/i, ''));\n    return { branch, chatInput: text };\n  }\n\n  const slashShort = text.match(/^\\/(rag|fast)\\b/i);\n  if (slashShort) {\n    branch = slashShort[1].toLowerCase();\n    text = compactText(text.replace(/^\\/(rag|fast)\\b/i, ''));\n    return { branch, chatInput: text };\n  }\n\n  const hashTag = text.match(/#(rag|fast)\\b/i);\n  if (hashTag) {\n    branch = hashTag[1].toLowerCase();\n    text = compactText(text.replace(/#(rag|fast)\\b/i, ''));\n  }\n\n  return { branch, chatInput: text };\n}\n\nconst getGlobalStaticData = () => {\n  if (typeof $getWorkflowStaticData === 'function') return $getWorkflowStaticData('global');\n  if (typeof this !== 'undefined' && this && typeof this.getWorkflowStaticData === 'function') {\n    return this.getWorkflowStaticData('global');\n  }\n  return null;\n};\n\nreturn $input.all().map((item) => {\n  const original = item.json || {};\n  const branchDecision = extractAnswerBranch(original.chatInput ?? '');\n  const answerBranch = branchDecision.branch === 'rag' ? 'rag' : 'fast';\n  const chatInput = compactText(branchDecision.chatInput || original.chatInput || '');\n  const lower = chatInput.toLowerCase();\n\n  const city = detectCity(lower);\n  const activity = detectActivity(lower);\n  const company = detectCompanyName(chatInput, lower, city);\n  const legalForm = detectLegalForm(chatInput);\n\n  const binMatch = chatInput.match(/\\b\\d{12}\\b/);\n  const bin = binMatch ? binMatch[0] : null;\n\n  let status = null;\n  if (/(неактив|ликвид|закрыт|приостанов)/i.test(lower)) status = 'Ликвидировано';\n  else if (lower.includes('активн')) status = 'Активно';\n\n  const isCount = /(сколько|количество|число)/i.test(lower);\n  const isStatusLookup = /(какой\\s+статус|статус\\s+у\\s+компани)/i.test(lower);\n  const isDateLookup = /(дата\\s+регистрац|когда\\s+зарегистр)/i.test(lower);\n  const isActivityLookup = /(вид\\s+деятельност|чем\\s+занима(?:ется|ют|ешься)|какая\\s+деятельност|какой\\s+вид\\s+деятельност|что\\s+дела(?:ет|ют)\\s+компани)/i.test(lower);\n  const isList = /(найди|покажи|перечисли|какие|список|все|подбери)/i.test(lower);\n\n  const asksUnsupportedField = /(выручк|доход|оборот|прибыл|маржин|ebitda|дивиденд|капитализац|активы|баланс|телефон|e-?mail|почт|сайт|адрес|руководител|учредител|директор|владелец|штат|сотрудник)/i.test(lower);\n  const asksRankingWithoutMetric = /(крупнейш|топ\\s*\\d+|лучш(ий|ая|ие)|сам(ый|ая|ое|ые))/i.test(lower);\n\n  let unsupportedReason = null;\n  if (asksUnsupportedField) unsupportedReason = 'Запрошены поля, которых нет в источнике данных.';\n  else if (asksRankingWithoutMetric) unsupportedReason = 'Запрошен рейтинг/сравнение, но в источнике нет метрик ранжирования.';\n\n  let queryMode = 'generic';\n  if (unsupportedReason) queryMode = 'unsupported';\n  else if (isCount) queryMode = 'count';\n  else if (bin) queryMode = 'bin_lookup';\n  else if (isStatusLookup) queryMode = 'status_lookup';\n  else if (isDateLookup) queryMode = 'registration_date_lookup';\n  else if (isActivityLookup) queryMode = 'activity_lookup';\n  else if (isList) queryMode = 'list';\n\n  const shortEntityLookup =\n    queryMode === 'generic'\n    && !unsupportedReason\n    && !bin\n    && Boolean(company.hint)\n    && !/(сколько|количество|число|найди|покажи|перечисли|какие|список|все|подбери|похож|аналог|схож|топ|крупнейш)/i.test(lower)\n    && (Boolean(city) || Boolean(legalForm) || company.confidence === 'high' || company.hint.split(' ').length <= 3);\n\n  if (shortEntityLookup) queryMode = 'status_lookup';\n\n  const companyHintModes = new Set(['status_lookup', 'registration_date_lookup', 'activity_lookup', 'bin_lookup']);\n  const companyHint = companyHintModes.has(queryMode) ? company.hint : null;\n\n  const must = [];\n  if (bin) must.push({ key: 'metadata.bin', match: { value: bin } });\n  if (company.exact) must.push({ key: 'metadata.name', match: { value: company.exact } });\n  if (city) must.push({ key: 'metadata.city', match: { value: city } });\n  if (status) must.push({ key: 'metadata.status', match: { value: status } });\n  if (activity) must.push({ key: 'metadata.activity', match: { value: activity } });\n\n  const qdrantFilter = must.length ? { must } : {};\n  const hasAnyFilter = must.length > 0;\n\n  let retrievalMode = 'semantic';\n  if (queryMode === 'unsupported') retrievalMode = 'none';\n  else if (answerBranch === 'rag') retrievalMode = 'semantic';\n  else if (!needsSemanticFallback(lower, hasAnyFilter, queryMode)) retrievalMode = 'metadata';\n\n  const semanticTopK = queryMode === 'bin_lookup' ? 3 : 10;\n  let metadataTopK = queryMode === 'count' ? 3000 : (queryMode === 'list' ? 100 : 25);\n  if (companyHint && !company.exact) metadataTopK = Math.max(metadataTopK, 3000);\n\n  const normalizedQuery = normalizeForMatch(chatInput);\n  const CACHE_SCHEMA_VERSION = 'v8';\n  const cacheKey = `${CACHE_SCHEMA_VERSION}:${answerBranch}:${normalizedQuery || lower}`;\n\n  let cacheHit = false;\n  let cachedResponseText = null;\n  try {\n    const s = getGlobalStaticData();\n    if (s) {\n      s.answerCache = s.answerCache || {};\n      if (s.answerCache[cacheKey]) {\n        cacheHit = true;\n        cachedResponseText = s.answerCache[cacheKey];\n      }\n    }\n  } catch (e) {\n    // Optional cache: no-op if static data API is unavailable in current runtime.\n  }\n\n  const filterParts = [];\n  if (bin) filterParts.push(`бин=${bin}`);\n  if (company.exact) filterParts.push(`название=${company.exact}`);\n  if (legalForm) filterParts.push(`юрформа=${legalForm}`);\n  if (city) filterParts.push(`город=${city}`);\n  if (status) filterParts.push(`статус=${status}`);\n  if (activity) filterParts.push(`вид_деятельности=${activity}`);\n\n  const retrievalHint = [\n    `query_mode=${queryMode}`,\n    `retrieval_mode=${retrievalMode}`,\n    unsupportedReason ? `unsupported_reason=${unsupportedReason}` : '',\n    'Используй только факты из контекста.',\n    'Если подходящих записей нет, верни недостаточно данных.',\n  ].filter(Boolean).join('\\n');\n\n  const retrievalQuery = [\n    retrievalHint,\n    chatInput,\n    filterParts.length ? `Фильтры: ${filterParts.join(', ')}` : '',\n  ].filter(Boolean).join('\\n');\n\n  return {\n    json: {\n      ...original,\n      chatInput,\n      answerBranch,\n      queryMode,\n      retrievalMode,\n      unsupportedReason,\n      semanticTopK,\n      metadataTopK,\n      cacheKey,\n      cacheHit,\n      cachedResponseText,\n      parsedFilters: {\n        bin,\n        companyName: company.exact,\n        companyHint,\n        companyConfidence: company.confidence,\n        legalForm,\n        city,\n        status,\n        activity,\n      },\n      qdrantFilter,\n      retrievalQuery,\n    },\n  };\n});"
+          },
+          "id": "prepare-query-strategy",
+          "name": "Prepare Query Strategy",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [
+            16,
+            -128
+          ]
+        },
+        {
+          "parameters": {
+            "jsCode": "const items = $input.all();\n\nfunction compact(s) {\n  return String(s || '').replace(/\\s+/g, ' ').trim();\n}\n\nfunction normalizeForMatch(s) {\n  return compact(s)\n    .toLowerCase()\n    .replace(/[\"«»']/g, '')\n    .replace(/(^|[\\s\\-])(тоо|ао|ип)(?=$|[\\s\\-])/giu, ' ')\n    .replace(/[^\\p{L}\\p{N}\\s-]+/gu, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction pickQueryItem(allItems) {\n  return allItems.find((i) => {\n    const j = i?.json || {};\n    return Boolean(j.queryMode || j.qdrantFilter || j.parsedFilters || j.retrievalMode || j.cacheKey);\n  }) || { json: {} };\n}\n\nfunction toRecordFromDocument(doc) {\n  const m = doc?.metadata || {};\n  const rec = {\n    bin: compact(m.bin),\n    name: compact(m.name),\n    city: compact(m.city),\n    status: compact(m.status),\n    activity: compact(m.activity),\n    registration_date: compact(m.registration_date),\n  };\n  if (!/^\\d{12}$/.test(rec.bin)) return null;\n  return rec;\n}\n\nfunction getLegalForm(name) {\n  const m = compact(name).match(/^(ТОО|АО|ИП)(?=$|[\\s\"«»'().,!?;:])/iu);\n  if (!m || !m[1]) return null;\n  return m[1].toUpperCase();\n}\n\nconst queryItem = pickQueryItem(items);\nconst query = queryItem.json || {};\nconst filters = (query.parsedFilters && typeof query.parsedFilters === 'object') ? query.parsedFilters : {};\nconst queryMode = compact(query.queryMode || 'generic');\nconst unsupportedReason = compact(query.unsupportedReason || '');\n\nfunction isRagOutputItem(i) {\n  const j = i?.json || {};\n  if (j.document) return false;\n  if (typeof j.text === 'string') return true;\n  if (typeof j?.response?.text === 'string') return true;\n  if (typeof j.response === 'string') return true;\n  return false;\n}\n\nconst answerBranchRaw = compact(query.answerBranch || '').toLowerCase();\nconst hasRagLikeOutput = items.some(isRagOutputItem);\nconst answerBranch = answerBranchRaw || (hasRagLikeOutput ? 'rag' : 'fast');\nconst modeLabel = answerBranch === 'rag' ? '[MODE: RAG]' : '[MODE: FAST]';\n\nfunction withMode(text) {\n  const body = String(text ?? '').trim();\n  if (!body) return modeLabel;\n  if (/^\\[MODE:\\s*(FAST|RAG)\\]/i.test(body)) return body;\n  return `${modeLabel}\\n${body}`;\n}\n\nfunction extractJsonCandidate(s) {\n  const text = compact(s);\n  if (!text) return null;\n\n  try {\n    return JSON.parse(text);\n  } catch (_) {}\n\n  const fenced = text.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/i);\n  if (fenced && fenced[1]) {\n    try {\n      return JSON.parse(fenced[1].trim());\n    } catch (_) {}\n  }\n  return null;\n}\n\nfunction extractAnswerFromRawText(s) {\n  const text = compact(s);\n  if (!text) return '';\n  const m = text.match(/\"answer\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"/i);\n  if (!m || !m[1]) return '';\n  try {\n    return JSON.parse(`\"${m[1]}\"`);\n  } catch (_) {\n    return m[1].replace(/\\\\\"/g, '\"');\n  }\n}\n\nfunction formatRagResponseText(raw) {\n  const txt = compact(raw);\n  if (!txt) return 'Недостаточно данных в контексте.';\n\n  const parsed = extractJsonCandidate(txt);\n  if (!parsed || typeof parsed !== 'object') {\n    const fallbackAnswer = compact(extractAnswerFromRawText(txt));\n    if (fallbackAnswer && !/\\\\$/.test(fallbackAnswer)) return fallbackAnswer;\n    return 'Недостаточно данных в контексте.';\n  }\n\n  const answer = compact(parsed.answer || parsed.text || '');\n  const evidence = Array.isArray(parsed.evidence) ? parsed.evidence.map((e) => compact(e)).filter(Boolean) : [];\n  const itemsList = Array.isArray(parsed.items) ? parsed.items : [];\n\n  let out = answer || 'Недостаточно данных в контексте.';\n  if (evidence.length) {\n    out += '\\n\\nПодтверждение:\\n' + evidence.slice(0, 5).map((e) => `- ${e}`).join('\\n');\n  } else if (itemsList.length) {\n    const lines = itemsList.slice(0, 5).map((it) => {\n      const name = compact(it?.name);\n      const bin = compact(it?.bin);\n      const city = compact(it?.city);\n      const status = compact(it?.status);\n      return `- Название: ${name} | БИН: ${bin} | Город: ${city} | Статус: ${status}`;\n    }).filter(Boolean);\n    if (lines.length) out += '\\n\\nПодтверждение:\\n' + lines.join('\\n');\n  }\n  return out;\n}\n\nif (queryMode === 'unsupported' || unsupportedReason) {\n  return [{ json: { response: { text: withMode('Недостаточно данных в контексте. Доступны только поля: БИН, название, город, статус, вид деятельности, дата регистрации.') } } }];\n}\n\nif (query.cacheHit && query.cachedResponseText) {\n  return [{ json: { response: { text: withMode(String(query.cachedResponseText)) } } }];\n}\n\nconst ragItem = items.find(isRagOutputItem);\nif (ragItem) {\n  const ragRaw = ragItem?.json?.text || ragItem?.json?.response?.text || ragItem?.json?.response || '';\n  const ragText = formatRagResponseText(ragRaw);\n  return [{ json: { response: { text: withMode(ragText) } } }];\n}\n\nconst docs = items\n  .filter((i) => i?.json?.document)\n  .map((i) => i.json.document)\n  .filter(Boolean);\n\nlet records = docs.map(toRecordFromDocument).filter(Boolean);\n\nconst byBin = new Map();\nfor (const r of records) if (!byBin.has(r.bin)) byBin.set(r.bin, r);\nrecords = [...byBin.values()];\n\nfunction matchesStrictFilters(r) {\n  if (filters.bin && r.bin !== String(filters.bin)) return false;\n  if (filters.companyName && r.name !== String(filters.companyName)) return false;\n  if (filters.legalForm && getLegalForm(r.name) !== String(filters.legalForm)) return false;\n  if (filters.city && r.city !== String(filters.city)) return false;\n  if (filters.status && r.status !== String(filters.status)) return false;\n  if (filters.activity && r.activity !== String(filters.activity)) return false;\n  return true;\n}\n\nfunction scoreByCompanyHint(r) {\n  const hint = normalizeForMatch(filters.companyHint || '');\n  if (!hint) return 0;\n  const n = normalizeForMatch(r.name);\n  if (!n) return 0;\n  if (n === hint) return 100;\n  if (n.includes(hint)) return 80;\n  if (hint.includes(n)) return 60;\n  const hintTokens = new Set(hint.split(' ').filter(Boolean));\n  const nameTokens = n.split(' ').filter(Boolean);\n  if (!hintTokens.size || !nameTokens.length) return 0;\n  let inter = 0;\n  for (const t of hintTokens) {\n    if (nameTokens.includes(t)) {\n      inter += 1;\n      continue;\n    }\n    const partial = nameTokens.some((nt) => {\n      if (nt.length < 4 || t.length < 4) return false;\n      return nt.startsWith(t) || t.startsWith(nt);\n    });\n    if (partial) inter += 0.7;\n  }\n  return Math.round((inter / hintTokens.size) * 50);\n}\n\nconst getGlobalStaticData = () => {\n  if (typeof $getWorkflowStaticData === 'function') return $getWorkflowStaticData('global');\n  if (typeof this !== 'undefined' && this && typeof this.getWorkflowStaticData === 'function') {\n    return this.getWorkflowStaticData('global');\n  }\n  return null;\n};\n\nlet filtered = records.filter(matchesStrictFilters);\n\nif (filters.companyHint) {\n  const fuzzyMatched = filtered\n    .map((r) => ({ r, s: scoreByCompanyHint(r) }))\n    .filter((x) => x.s >= 30)\n    .sort((a, b) => b.s - a.s)\n    .map((x) => x.r);\n\n  if (fuzzyMatched.length) filtered = fuzzyMatched;\n  else if (!filters.companyName) filtered = [];\n}\n\nif (!filtered.length) {\n  return [{ json: { response: { text: withMode('Недостаточно данных в контексте.') } } }];\n}\n\nconst needsSingleRecord = ['status_lookup', 'registration_date_lookup', 'activity_lookup'].includes(queryMode);\nif (needsSingleRecord && !filters.bin && !filters.companyName && filtered.length > 1) {\n  const askParts = [];\n  if (!filters.city) askParts.push('город');\n  if (!filters.legalForm) askParts.push('юрформу (ТОО/АО/ИП)');\n  if (!askParts.length) askParts.push('БИН');\n\n  const variants = filtered\n    .slice(0, 5)\n    .map((r) => `- ${r.name} — город: ${r.city || 'не указан'}, БИН: ${r.bin}`);\n\n  const clarifyText = [\n    'Найдено несколько компаний с похожим названием.',\n    `Уточните ${askParts.join(' или ')}.`,\n    'Варианты:',\n    ...variants,\n  ].join('\\n');\n\n  return [{ json: { response: { text: withMode(clarifyText) } } }];\n}\n\nlet answer = '';\nif (queryMode === 'count') {\n  const counted = Number(query.metadataCount || filtered.length || 0);\n  answer = String(counted);\n} else if (queryMode === 'status_lookup') {\n  answer = filtered[0].status || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'registration_date_lookup') {\n  answer = filtered[0].registration_date || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'activity_lookup') {\n  answer = filtered[0].activity || 'Недостаточно данных в контексте.';\n} else if (queryMode === 'bin_lookup') {\n  const r = filtered[0];\n  answer = `${r.name}, ${r.city}, ${r.status}`;\n} else {\n  const names = [...new Set(filtered.map((r) => r.name).filter(Boolean))].slice(0, 5);\n  answer = names.length ? names.join(', ') : 'Недостаточно данных в контексте.';\n}\n\nconst evidenceLines = filtered.slice(0, 3).map((r) => `Название: ${r.name} | БИН: ${r.bin} | Город: ${r.city} | Статус: ${r.status}`);\n\nlet finalText = answer;\nif (evidenceLines.length) {\n  finalText += '\\n\\nПодтверждение:\\n' + evidenceLines.map((x) => `- ${x}`).join('\\n');\n}\nfinalText = withMode(finalText);\n\ntry {\n  if (query.cacheKey) {\n    const s = getGlobalStaticData();\n    if (!s) throw new Error('no_static_data_api');\n    s.answerCache = s.answerCache || {};\n    s.answerCache[query.cacheKey] = finalText;\n  }\n} catch (e) {\n  // Optional cache write: no-op if static data API is unavailable in current runtime.\n}\n\nreturn [{ json: { response: { text: finalText } } }];"
+          },
+          "id": "format-final-answer",
+          "name": "Format Final Answer",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [
+            576,
+            64
+          ]
+        },
+        {
+          "parameters": {
+            "mode": "load",
+            "qdrantCollection": {
+              "__rl": true,
+              "value": "kz_companies",
+              "mode": "list",
+              "cachedResultName": "kz_companies"
+            },
+            "prompt": "={{ $json.retrievalQuery || $json.chatInput }}",
+            "topK": "={{ $json.topK || 10 }}",
+            "options": {
+              "searchFilterJson": "={{ $json.qdrantFilter || {} }}",
+              "contentPayloadKey": "pageContent",
+              "metadataPayloadKey": "metadata"
+            }
+          },
+          "id": "qdrant-docs-load",
+          "name": "Qdrant Docs Load",
+          "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+          "typeVersion": 1,
+          "position": [
+            -208,
+            144
+          ],
+          "credentials": {
+            "qdrantApi": {
+              "id": "pAgsxavxE7SUpUsV",
+              "name": "QdrantApi account"
+            }
+          }
+        },
+        {
+          "parameters": {},
+          "id": "merge-query-docs",
+          "name": "Merge Query And Docs",
+          "type": "n8n-nodes-base.merge",
+          "typeVersion": 3.2,
+          "position": [
+            640,
+            288
+          ]
+        },
+        {
+          "parameters": {
+            "jsCode": "const inputItems = $input.all();\n\nfunction asArray(v) {\n  return Array.isArray(v) ? v : [];\n}\n\nfunction sleep(ms) {\n  return new Promise((resolve) => setTimeout(resolve, ms));\n}\n\nconst httpRequest = this.helpers.httpRequest.bind(this.helpers);\n\nasync function postJson(baseUrl, path, body, timeoutMs = 2500) {\n  try {\n    return await httpRequest({\n      method: 'POST',\n      url: `${baseUrl}${path}`,\n      body: body || {},\n      json: true,\n      timeout: timeoutMs,\n      headers: { 'Content-Type': 'application/json' },\n    });\n  } catch (err) {\n    const status = err?.statusCode || err?.response?.statusCode || err?.response?.status || 'ERR';\n    const msg = err?.message || err?.description || 'request_failed';\n    throw new Error(`HTTP ${status} ${path}: ${msg}`);\n  }\n}\n\nasync function postWithFallback(baseUrls, path, body, timeoutMs = 2500) {\n  let lastErr = null;\n  for (const baseUrl of baseUrls) {\n    try {\n      return await postJson(baseUrl, path, body, timeoutMs);\n    } catch (err) {\n      lastErr = err;\n      await sleep(20);\n    }\n  }\n  throw lastErr || new Error(`Request failed: ${path}`);\n}\n\nfunction toDocItemFromPayload(payload) {\n  const metadata = payload?.metadata || {};\n  const pageContent = payload?.pageContent || '';\n  return {\n    json: {\n      document: {\n        pageContent,\n        metadata,\n      },\n    },\n  };\n}\n\nasync function run() {\n  const output = [];\n\n  for (const item of inputItems) {\n    const query = item?.json || {};\n\n    if (query.queryMode === 'unsupported' || query.retrievalMode === 'none' || query.cacheHit) {\n      output.push({ json: { ...query } });\n      continue;\n    }\n\n    const qdrantUrls = ['http://qdrant:6333', 'http://localhost:6333'];\n    const ollamaUrls = ['http://ollama:11434', 'http://localhost:11434'];\n\n    const filter = query.qdrantFilter || {};\n    const hasFilter = Boolean(filter && Array.isArray(filter.must) && filter.must.length);\n\n    if (query.retrievalMode === 'metadata') {\n      const countBody = {\n        exact: true,\n        ...(hasFilter ? { filter } : {}),\n      };\n\n      const countRes = await postWithFallback(qdrantUrls, '/collections/kz_companies/points/count', countBody, 3000);\n\n      const scrollBody = {\n        limit: Number(query.metadataTopK || 50),\n        with_payload: true,\n        with_vector: false,\n        ...(hasFilter ? { filter } : {}),\n      };\n\n      const scrollRes = await postWithFallback(qdrantUrls, '/collections/kz_companies/points/scroll', scrollBody, 4000);\n      const points = asArray(scrollRes?.result?.points);\n\n      output.push({ json: { ...query, metadataCount: Number(countRes?.result?.count || 0) } });\n      for (const p of points) {\n        output.push(toDocItemFromPayload(p?.payload || {}));\n      }\n      continue;\n    }\n\n    const embBody = {\n      model: 'bge-m3:latest',\n      prompt: query.retrievalQuery || query.chatInput || '',\n    };\n    const embRes = await postWithFallback(ollamaUrls, '/api/embeddings', embBody, 4000);\n    const embedding = embRes?.embedding;\n    if (!Array.isArray(embedding) || !embedding.length) {\n      output.push({ json: { ...query, retrievalError: 'embedding_failed' } });\n      continue;\n    }\n\n    const searchBody = {\n      vector: embedding,\n      limit: Number(query.semanticTopK || 10),\n      with_payload: true,\n      with_vector: false,\n      ...(hasFilter ? { filter } : {}),\n    };\n    const searchRes = await postWithFallback(qdrantUrls, '/collections/kz_companies/points/search', searchBody, 4500);\n    const hits = asArray(searchRes?.result);\n\n    output.push({ json: { ...query } });\n    for (const h of hits) {\n      output.push(toDocItemFromPayload(h?.payload || {}));\n    }\n  }\n\n  return output;\n}\n\nreturn run();\n"
+          },
+          "id": "retrieve-candidates",
+          "name": "Retrieve Candidates",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [
+            448,
+            -128
+          ]
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "string": [
+                {
+                  "value1": "={{ $json.answerBranch || \"fast\" }}",
+                  "value2": "rag"
+                }
+              ]
+            }
+          },
+          "id": "route-answer-branch",
+          "name": "Route Answer Branch",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 1,
+          "position": [
+            224,
+            -128
+          ]
+        }
+      ],
+      "connections": {
+        "Ollama Chat Model": {
+          "ai_languageModel": [
+            [
+              {
+                "node": "Question Answering Chain",
+                "type": "ai_languageModel",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Qdrant Vector Store": {
+          "ai_retriever": [
+            []
+          ],
+          "ai_vectorStore": [
+            [
+              {
+                "node": "Vector Store Retriever",
+                "type": "ai_vectorStore",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Ollama Embeddings": {
+          "ai_embedding": [
+            [
+              {
+                "node": "Qdrant Vector Store",
+                "type": "ai_embedding",
+                "index": 0
+              },
+              {
+                "node": "Qdrant Docs Load",
+                "type": "ai_embedding",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Vector Store Retriever": {
+          "ai_retriever": [
+            [
+              {
+                "node": "Question Answering Chain",
+                "type": "ai_retriever",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Question Answering Chain": {
+          "main": [
+            [
+              {
+                "node": "Format Final Answer",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "When chat message received": {
+          "main": [
+            [
+              {
+                "node": "Prepare Query Strategy",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Prepare Query Strategy": {
+          "main": [
+            [
+              {
+                "node": "Route Answer Branch",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Format Final Answer": {
+          "main": [
+            []
+          ]
+        },
+        "Qdrant Docs Load": {
+          "main": [
+            []
+          ]
+        },
+        "Merge Query And Docs": {
+          "main": [
+            []
+          ]
+        },
+        "Retrieve Candidates": {
+          "main": [
+            [
+              {
+                "node": "Format Final Answer",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Route Answer Branch": {
+          "main": [
+            [
+              {
+                "node": "Question Answering Chain",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "Retrieve Candidates",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      },
+      "authors": "Рамис Назаров",
+      "name": null,
+      "description": null,
+      "autosaved": false,
+      "workflowPublishHistory": [
+        {
+          "createdAt": "2026-04-19T07:55:47.791Z",
+          "id": 22,
+          "workflowId": "nQjnLUKAEuy82DSP",
+          "versionId": "3f0ed180-4f63-4a3e-8e26-e7f6011b01d7",
+          "event": "activated",
+          "userId": "6b44d551-c1e8-4d95-a141-3c33877749ea"
+        }
+      ]
+    },
+    "scopes": [
+      "workflow:create",
+      "workflow:delete",
+      "workflow:execute",
+      "workflow:execute-chat",
+      "workflow:list",
+      "workflow:move",
+      "workflow:publish",
+      "workflow:read",
+      "workflow:share",
+      "workflow:update"
+    ],
+    "checksum": "b2d46c81849427da5642ac307438ac0bae9e0c1c2df0aaaad0d229bd1f63aeb1"
   }
 ]
